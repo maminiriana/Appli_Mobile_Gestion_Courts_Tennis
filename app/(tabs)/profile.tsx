@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
 import { theme } from '../../constants/theme';
 import Header from '../../components/Header';
 import { format } from 'date-fns';
@@ -7,68 +7,10 @@ import { fr } from 'date-fns/locale';
 import { ChevronRight, CreditCard as Edit2, LogOut, CreditCard, Bell, CircleHelp as HelpCircle } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import { supabase } from '../../supabase/supabase';
 
 export default function ProfileScreen() {
   const { user, setUser, setToken } = useAuth();
   const router = useRouter();
-
-  const handleImageUpload = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permissionResult.granted) {
-      Alert.alert('Permission refusée', 'Nous avons besoin de votre permission pour accéder à vos photos');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      try {
-        const asset = result.assets[0];
-        const fileName = `${Date.now()}_${asset.fileName || 'profile'}.jpg`;
-
-        const base64 = await FileSystem.readAsStringAsync(asset.uri, { 
-          encoding: FileSystem.EncodingType.Base64 
-        });
-
-        const { error: uploadError } = await supabase.storage
-          .from('profiles')
-          .upload(fileName, base64, {
-            contentType: 'image/jpeg',
-            upsert: true,
-          });
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('profiles')
-          .getPublicUrl(fileName);
-
-        await supabase
-          .from('users')
-          .update({ profile_image: publicUrl })
-          .eq('id', user.id);
-
-        setUser({
-          ...user,
-          profileImage: publicUrl
-        });
-
-        Alert.alert('Succès', 'Photo de profil mise à jour');
-      } catch (error) {
-        console.error('Erreur upload:', error);
-        Alert.alert('Erreur', 'Impossible de mettre à jour la photo de profil');
-      }
-    }
-  };
 
   const handleLogout = () => {
     setUser(null);
@@ -96,7 +38,7 @@ export default function ProfileScreen() {
           style={styles.profileImage}
         />
       )}
-
+      
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -109,26 +51,26 @@ export default function ProfileScreen() {
           <View style={styles.profileInfo}>
             <Text style={styles.userName}>{user.firstName} {user.lastName}</Text>
             <Text style={styles.membershipTag}>{user.membershipType || ''}</Text>
-            <TouchableOpacity style={styles.editButton} onPress={handleImageUpload}>
+            <TouchableOpacity style={styles.editButton}>
               <Edit2 size={14} color={theme.colors.primary} />
               <Text style={styles.editButtonText}>Modifier</Text>
             </TouchableOpacity>
           </View>
         </View>
-
+        
         <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>Informations personnelles</Text>
-
+          
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Email</Text>
             <Text style={styles.infoValue}>{user.email}</Text>
           </View>
-
+          
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Téléphone</Text>
             <Text style={styles.infoValue}>{user.phoneNumber || ''}</Text>
           </View>
-
+          
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Membre depuis</Text>
             <Text style={styles.infoValue}>
@@ -136,28 +78,28 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </View>
-
+        
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Paramètres</Text>
-
+          
           <TouchableOpacity style={styles.menuItem}>
             <CreditCard size={20} color={theme.colors.gray[600]} />
             <Text style={styles.menuItemText}>Moyens de paiement</Text>
             <ChevronRight size={18} color={theme.colors.gray[400]} />
           </TouchableOpacity>
-
+          
           <TouchableOpacity style={styles.menuItem}>
             <Bell size={20} color={theme.colors.gray[600]} />
             <Text style={styles.menuItemText}>Notifications</Text>
             <ChevronRight size={18} color={theme.colors.gray[400]} />
           </TouchableOpacity>
-
+          
           <TouchableOpacity style={styles.menuItem}>
             <HelpCircle size={20} color={theme.colors.gray[600]} />
             <Text style={styles.menuItemText}>Aide et support</Text>
             <ChevronRight size={18} color={theme.colors.gray[400]} />
           </TouchableOpacity>
-
+          
           <TouchableOpacity style={[styles.menuItem, styles.logoutButton]} onPress={handleLogout}>
             <LogOut size={20} color={theme.colors.error} />
             <Text style={styles.logoutText}>Se déconnecter</Text>
