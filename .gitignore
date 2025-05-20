@@ -1,34 +1,30 @@
-# dependencies
+# Node modules
 node_modules/
 
-# expo
+# Expo
 .expo/
-dist/
-web-build/
-expo-env.d.ts
+.expo-shared/
 
-# native
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+# Environnements
+.env
+.env.*  # si tu en as plusieurs (ex : .env.production, .env.local)
 
-# metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macos
+# macOS
 .DS_Store
-*.pem
 
-# local env files
-.env*.local
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# typescript
+# IDE
+.vscode/
+.idea/
+
+# TypeScript
 *.tsbuildinfo
+
+# Supabase
+supabase/.temp/
+
