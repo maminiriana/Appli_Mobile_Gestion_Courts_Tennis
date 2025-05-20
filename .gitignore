@@ -1,3 +1,6 @@
+# bolt
+.bolt/
+
 # Node modules
 node_modules/
 
@@ -5,6 +8,9 @@ node_modules/
 .expo/
 .expo-shared/
 
+#api-tennis
+api-tennis/routes/
+api-tennis/.env
 # Environnements
 .env
 .env.*  # si tu en as plusieurs (ex : .env.production, .env.local)
@@ -26,5 +32,6 @@ pnpm-debug.log*
 *.tsbuildinfo
 
 # Supabase
+supabase/
 supabase/.temp/
 
