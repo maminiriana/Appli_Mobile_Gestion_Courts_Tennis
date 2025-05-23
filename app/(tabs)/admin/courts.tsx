@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, TextInput } from 'react-native';
 import { theme } from '@/constants/theme';
 import { courts } from '@/constants/mockData';
-import { Search, AlertTriangle, CheckCircle2, CircleOff } from 'lucide-react-native';
+import { Search, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, CircleOff } from 'lucide-react-native';
 
 export default function CourtsManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
