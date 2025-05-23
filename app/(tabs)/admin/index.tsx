@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { theme } from '@/constants/theme';
 import { useRouter } from 'expo-router';
-import { Users, Tent as Tennis, ChartBar as BarChart3, Settings } from 'lucide-react-native';
+import { Users, Tent as Tennis, Calendar, ChartBar as BarChart3 } from 'lucide-react-native';
 
 export default function AdminScreen() {
   const router = useRouter();
@@ -12,7 +12,7 @@ export default function AdminScreen() {
       title: 'Gestion des membres',
       description: 'Gérer les comptes utilisateurs et les cotisations',
       icon: Users,
-      route: '/admin/members',
+      route: '/admin/users',
     },
     {
       title: 'Gestion des courts',
@@ -21,16 +21,16 @@ export default function AdminScreen() {
       route: '/admin/courts',
     },
     {
+      title: 'Gestion des réservations',
+      description: 'Gérer les réservations des courts',
+      icon: Calendar,
+      route: '/admin/bookings',
+    },
+    {
       title: 'Statistiques',
       description: "Consulter les statistiques d'utilisation",
       icon: BarChart3,
       route: '/admin/stats',
-    },
-    {
-      title: 'Paramètres',
-      description: "Configurer les paramètres de l'application",
-      icon: Settings,
-      route: '/admin/settings',
     },
   ];
 
@@ -48,9 +48,11 @@ export default function AdminScreen() {
             style={styles.card}
             onPress={() => router.push(item.route as any)}
           >
-            <item.icon size={24} color={theme.colors.primary} />
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardDescription}>{item.description}</Text>
+            <View style={styles.cardInner}>
+              <item.icon size={24} color={theme.colors.primary} />
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <Text style={styles.cardDescription}>{item.description}</Text>
+            </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -98,6 +100,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    alignItems: 'center',
   },
   cardTitle: {
     fontFamily: theme.fonts.semiBold,
@@ -105,10 +108,12 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.xs,
+    textAlign: 'center',
   },
   cardDescription: {
     fontFamily: theme.fonts.regular,
     fontSize: theme.fontSizes.sm,
     color: theme.colors.gray[600],
+    textAlign: 'center',
   },
 });
