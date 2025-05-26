@@ -53,12 +53,6 @@ export default function RegisterScreen() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName
-          }
-        }
       });
 
       if (authError) throw authError;
@@ -66,22 +60,24 @@ export default function RegisterScreen() {
       if (!authData.user) throw new Error('No user data returned');
 
       // 2. Create the user profile in the users table
-const { error: profileError } = await supabase
-  .from('users')
-  .insert({
-    id: authData.user.id,
-    email,
-    first_name: firstName,
-    last_name: lastName,
-    phone: phone || null, // Make phone optional
-    subscription_status: isPaid,
-    last_subscription_date: isPaid ? new Date().toISOString() : null,
-    role: 'joueur', // This is already correct
-    profile_image: profileImage || null // Make profile_image optional
-  });
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          phone: phone || null,
+          role: 'joueur',
+          subscription_status: isPaid,
+          last_subscription_date: isPaid ? new Date().toISOString() : null,
+          profile_image: profileImage || null
+        });
 
-
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile Error:', profileError);
+        throw profileError;
+      }
 
       // Success - redirect to login
       alert('Inscription réussie ! Vous pouvez maintenant vous connecter.');
