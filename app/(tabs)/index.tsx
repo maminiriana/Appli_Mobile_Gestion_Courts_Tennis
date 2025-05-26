@@ -45,7 +45,7 @@ export default function HomeScreen() {
                 />
               </>
             ) : (
-              <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
+<TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
                 {user.profileImage ? (
                   <Image
                     source={{ uri: user.profileImage }}
