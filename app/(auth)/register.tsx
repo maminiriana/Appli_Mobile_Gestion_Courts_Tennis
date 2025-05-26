@@ -73,11 +73,11 @@ export default function RegisterScreen() {
           email,
           first_name: firstName,
           last_name: lastName,
-          phone,
+          phone: phone || null,
           subscription_status: isPaid,
           last_subscription_date: isPaid ? new Date().toISOString() : null,
           role: 'joueur',
-          profile_image: profileImage
+          profile_image: profileImage || null
         });
 
       if (profileError) throw profileError;
