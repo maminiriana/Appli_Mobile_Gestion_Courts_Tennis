@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
 import { Court } from '@/types';
 import { theme } from '@/constants/theme';
-import { MapPin, DoorClosed, CircleCheck as CheckCircle } from 'lucide-react-native';
+import { MapPin, DoorClosed, CheckCircle as CheckCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 interface CourtItemProps {
