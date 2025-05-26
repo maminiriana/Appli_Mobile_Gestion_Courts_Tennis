@@ -30,17 +30,18 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-    <>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="court/[id]" options={{ headerShown: false, presentation: 'modal' }} />
-        <Stack.Screen name="booking/create" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="booking/confirmation" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="test" options={{ headerShown: true, title: 'Test Supabase' }} />
-        <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
-      </Stack>
-    </>
+      <>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="court/[id]" options={{ headerShown: false, presentation: 'modal' }} />
+          <Stack.Screen name="booking/create" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="booking/confirmation" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="test" options={{ headerShown: true, title: 'Test Supabase' }} />
+          <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </>
     </AuthProvider>
   );
 }
