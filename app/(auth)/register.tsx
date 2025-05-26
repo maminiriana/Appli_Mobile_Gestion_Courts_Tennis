@@ -66,19 +66,20 @@ export default function RegisterScreen() {
       if (!authData.user) throw new Error('No user data returned');
 
       // 2. Create the user profile in the users table
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email,
-          first_name: firstName,
-          last_name: lastName,
-          phone,
-          subscription_status: isPaid,
-          last_subscription_date: isPaid ? new Date().toISOString() : null,
-          role: 'joueur',
-          profile_image: profileImage
-        });
+const { error: profileError } = await supabase
+  .from('users')
+  .insert({
+    id: authData.user.id,
+    email,
+    first_name: firstName,
+    last_name: lastName,
+    phone: phone || null, // Make phone optional
+    subscription_status: isPaid,
+    last_subscription_date: isPaid ? new Date().toISOString() : null,
+    role: 'joueur', // This is already correct
+    profile_image: profileImage || null // Make profile_image optional
+  });
+
 
       if (profileError) throw profileError;
 
