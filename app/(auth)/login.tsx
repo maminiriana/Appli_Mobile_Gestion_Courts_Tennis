@@ -41,9 +41,10 @@ export default function LoginScreen() {
         .from('users')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) throw profileError;
+      if (!profile) throw new Error('Profil utilisateur non trouvé');
 
       setUser(profile);
       setToken(session.access_token);

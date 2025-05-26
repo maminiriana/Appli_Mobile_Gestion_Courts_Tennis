@@ -53,6 +53,14 @@ export default function RegisterScreen() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            phone: phone || null,
+            role: 'joueur'
+          }
+        }
       });
 
       if (authError) throw authError;
