@@ -5,6 +5,7 @@ import Button from '../../components/Button';
 import { useRouter } from 'expo-router';
 import { Lock, Mail } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -12,7 +13,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const API_URL = process.env.EXPO_PUBLIC_API_URL;
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -21,21 +22,37 @@ export default function LoginScreen() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/users/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      setIsLoading(true);
+      setError(null);
+
+      const { data: { user, session }, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.message || 'Identifiants incorrects');
-        return;
+
+      if (authError) throw authError;
+
+      if (!user || !session) {
+        throw new Error('Erreur lors de la connexion');
       }
-      setUser(data.user);
-      setToken(data.token);
+
+      // Fetch user profile data
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      setUser(profile);
+      setToken(session.access_token);
       router.replace('/(tabs)');
     } catch (error) {
-      setError('Erreur réseau lors de la connexion');
+      console.error('Login error:', error);
+      setError(error instanceof Error ? error.message : 'Erreur lors de la connexion');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -65,6 +82,7 @@ export default function LoginScreen() {
                 placeholder="votre@email.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                editable={!isLoading}
               />
             </View>
           </View>
@@ -79,6 +97,7 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 placeholder="••••••••"
                 secureTextEntry
+                editable={!isLoading}
               />
             </View>
           </View>
@@ -91,10 +110,11 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <Button
-            title="Se connecter"
+            title={isLoading ? "Connexion..." : "Se connecter"}
             onPress={handleLogin}
             style={styles.button}
             size="lg"
+            disabled={isLoading}
           />
 
           <View style={styles.registerContainer}>
@@ -104,6 +124,7 @@ export default function LoginScreen() {
               onPress={() => router.push('/(auth)/register')}
               variant="text"
               style={styles.registerButton}
+              disabled={isLoading}
             />
           </View>
         </View>
