@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { testConnection } from './test-connection';
+import { testConnection } from '@/lib/supabase/test-connection';
 import { theme } from '@/constants/theme';
 
 export default function TestPage() {
