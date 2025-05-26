@@ -40,7 +40,7 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    if (!firstName || !lastName || !phone || !email || !password) {
+    if (!firstName || !lastName || !email || !password) {
       setError('Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -49,17 +49,23 @@ export default function RegisterScreen() {
       setIsLoading(true);
       setError(null);
 
-      // 1. Create the user account
+      // 1. Create the user account with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName
+          }
+        }
       });
 
       if (authError) throw authError;
 
       if (!authData.user) throw new Error('No user data returned');
 
-      // 2. Create the user profile
+      // 2. Create the user profile in the users table
       const { error: profileError } = await supabase
         .from('users')
         .insert({
@@ -71,12 +77,13 @@ export default function RegisterScreen() {
           subscription_status: isPaid,
           last_subscription_date: isPaid ? new Date().toISOString() : null,
           role: 'joueur',
-          profile_image: profileImage,
+          profile_image: profileImage
         });
 
       if (profileError) throw profileError;
 
       // Success - redirect to login
+      alert('Inscription réussie ! Vous pouvez maintenant vous connecter.');
       router.replace('/(auth)/login');
     } catch (error) {
       console.error('Registration error:', error);
@@ -162,7 +169,7 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email (Identifiant)</Text>
+            <Text style={styles.label}>Email</Text>
             <TextInput
               style={styles.input}
               value={email}
