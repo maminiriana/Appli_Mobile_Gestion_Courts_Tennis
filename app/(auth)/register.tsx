@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import Button from '../../components/Button';
 import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '@/lib/supabase';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -12,14 +13,12 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState('');
   const [isPaid, setIsPaid] = useState(false);
   const [email, setEmail] = useState('');
-  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const API_URL = process.env.EXPO_PUBLIC_API_URL;
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleImageUpload = async () => {
-    // Demander la permission d'accès à la galerie
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permissionResult.granted) {
@@ -27,7 +26,6 @@ export default function RegisterScreen() {
       return;
     }
 
-    // Ouvrir la galerie pour sélectionner une image
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -36,7 +34,6 @@ export default function RegisterScreen() {
     });
 
     if (!pickerResult.canceled) {
-      // Simuler l'upload de l'image et définir l'URL
       const uploadedImageUrl = pickerResult.assets[0].uri;
       setProfileImage(uploadedImageUrl);
     }
@@ -47,30 +44,45 @@ export default function RegisterScreen() {
       setError('Veuillez remplir tous les champs obligatoires');
       return;
     }
+
     try {
-      const response = await fetch(`${API_URL}/api/users/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      setIsLoading(true);
+      setError(null);
+
+      // 1. Create the user account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError) throw authError;
+
+      if (!authData.user) throw new Error('No user data returned');
+
+      // 2. Create the user profile
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
           email,
-          password,
-          firstName,
-          lastName,
+          first_name: firstName,
+          last_name: lastName,
           phone,
           subscription_status: isPaid,
-          last_subscription_date: isPaid ? new Date().toISOString().split('T')[0] : null,
+          last_subscription_date: isPaid ? new Date().toISOString() : null,
           role: 'joueur',
-          profileImage,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.message || 'Erreur lors de l\'inscription');
-        return;
-      }
+          profile_image: profileImage,
+        });
+
+      if (profileError) throw profileError;
+
+      // Success - redirect to login
       router.replace('/(auth)/login');
     } catch (error) {
-      setError('Erreur réseau lors de l\'inscription');
+      console.error('Registration error:', error);
+      setError(error instanceof Error ? error.message : 'Erreur lors de l\'inscription');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -91,8 +103,14 @@ export default function RegisterScreen() {
         <View style={styles.form}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Photo de profil</Text>
-            <TouchableOpacity style={styles.uploadButton} onPress={handleImageUpload}>
-              <Text style={styles.uploadButtonText}>{profileImage ? 'Modifier la photo' : 'Uploader une photo'}</Text>
+            <TouchableOpacity 
+              style={styles.uploadButton} 
+              onPress={handleImageUpload}
+              disabled={isLoading}
+            >
+              <Text style={styles.uploadButtonText}>
+                {profileImage ? 'Modifier la photo' : 'Uploader une photo'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -104,6 +122,7 @@ export default function RegisterScreen() {
               onChangeText={setFirstName}
               placeholder="Votre prénom"
               autoCapitalize="words"
+              editable={!isLoading}
             />
           </View>
 
@@ -115,6 +134,7 @@ export default function RegisterScreen() {
               onChangeText={setLastName}
               placeholder="Votre nom"
               autoCapitalize="words"
+              editable={!isLoading}
             />
           </View>
 
@@ -126,6 +146,7 @@ export default function RegisterScreen() {
               onChangeText={setPhone}
               placeholder="Votre numéro de téléphone"
               keyboardType="phone-pad"
+              editable={!isLoading}
             />
           </View>
 
@@ -136,11 +157,12 @@ export default function RegisterScreen() {
               onValueChange={setIsPaid}
               trackColor={{ false: theme.colors.gray[400], true: theme.colors.primary }}
               thumbColor={isPaid ? theme.colors.primary : theme.colors.gray[100]}
+              disabled={isLoading}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email(Identifiant)</Text>
+            <Text style={styles.label}>Email (Identifiant)</Text>
             <TextInput
               style={styles.input}
               value={email}
@@ -148,6 +170,7 @@ export default function RegisterScreen() {
               placeholder="exemple@email.com"
               autoCapitalize="none"
               keyboardType="email-address"
+              editable={!isLoading}
             />
           </View>
 
@@ -159,14 +182,16 @@ export default function RegisterScreen() {
               onChangeText={setPassword}
               placeholder="••••••••"
               secureTextEntry
+              editable={!isLoading}
             />
           </View>
 
           <Button
-            title="S'inscrire"
+            title={isLoading ? "Inscription en cours..." : "S'inscrire"}
             onPress={handleRegister}
             style={styles.button}
             size="lg"
+            disabled={isLoading}
           />
         </View>
       </View>
