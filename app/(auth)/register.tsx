@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, SafeAreaView, TouchableOpacity, Switch } from 'react-native';
+import { StyleSheet, Text, View, TextInput, SafeAreaView, TouchableOpacity, Switch, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import Button from '../../components/Button';
@@ -23,6 +23,12 @@ export default function RegisterScreen() {
   const handleImageUpload = async () => {
     if (isLoading) return;
 
+    // Check if we're on web platform
+    if (Platform.OS === 'web') {
+      setError('La sélection d\'image n\'est pas disponible sur le web pour le moment');
+      return;
+    }
+
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permissionResult.granted) {
@@ -31,7 +37,7 @@ export default function RegisterScreen() {
     }
 
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
