@@ -1,10 +1,7 @@
 import { Database } from './supabase.types';
 
-// Types pour les utilisateurs
 export type User = Database['public']['Tables']['users']['Row'];
-export type ProfileImage = Database['public']['Tables']['profile_images']['Row'];
 
-// Type pour le contexte d'authentification
 export type AuthContextType = {
   user: User | null;
   token: string | null;
@@ -12,15 +9,14 @@ export type AuthContextType = {
   setToken: (token: string | null) => void;
 };
 
-// Type pour le formulaire d'inscription
 export type RegisterFormData = {
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
   subscription_status: boolean;
   last_subscription_date: string | null;
   role: string;
-  profileImage: string | null;
+  profile_image: string | null;
 };
