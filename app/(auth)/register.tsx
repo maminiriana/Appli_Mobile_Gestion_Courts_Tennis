@@ -6,7 +6,6 @@ import Button from '../../components/Button';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';
-import * as FileSystem from 'expo-file-system';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -28,12 +27,10 @@ export default function RegisterScreen() {
       setIsLoading(true);
 
       if (Platform.OS === 'web') {
-        // Créer un input file invisible pour le web
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
         
-        // Promisify l'événement change
         const file = await new Promise<File>((resolve, reject) => {
           input.onchange = (e) => {
             const file = (e.target as HTMLInputElement).files?.[0];
@@ -46,46 +43,39 @@ export default function RegisterScreen() {
           input.click();
         });
 
-        // Créer une URL pour l'aperçu de l'image
-        const imageUrl = URL.createObjectURL(file);
-        setProfileImage(imageUrl);
+        // Convertir en base64
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+        });
+
+        setProfileImage(base64);
       } else {
-        // Code mobile existant
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
         if (!permissionResult.granted) {
-          setError('Permission d\'accès à la galerie refusée');
-          return;
+          throw new Error('Permission d\'accès à la galerie refusée');
         }
 
-        const pickerResult = await ImagePicker.launchImageLibraryAsync({
+        const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
           aspect: [1, 1],
-          quality: 1,
+          quality: 0.7,
+          base64: true,
         });
 
-        if (!pickerResult.canceled) {
-          const asset = pickerResult.assets[0];
-          const fileName = `${Date.now()}_${asset.fileName || 'profile'}.jpg`;
-          
-          // Créer le dossier des images de profil s'il n'existe pas
-          const profileImagesDir = `${FileSystem.documentDirectory}profile-images/`;
-          await FileSystem.makeDirectoryAsync(profileImagesDir, { intermediates: true });
-          
-          // Copier l'image vers notre dossier local
-          const newPath = `${profileImagesDir}${fileName}`;
-          await FileSystem.copyAsync({
-            from: asset.uri,
-            to: newPath
-          });
-
-          setProfileImage(newPath);
+        if (!result.canceled && result.assets[0].base64) {
+          const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+          setProfileImage(base64Image);
         }
       }
     } catch (error) {
       console.error('Erreur lors de l\'upload de l\'image:', error);
-      setError('Erreur lors de l\'upload de l\'image');
+      setError(error instanceof Error ? error.message : 'Erreur lors de l\'upload de l\'image');
     } finally {
       setIsLoading(false);
     }
