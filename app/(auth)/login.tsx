@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Lock, Mail } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import bcrypt from 'bcryptjs';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -25,44 +26,28 @@ export default function LoginScreen() {
       setIsLoading(true);
       setError(null);
 
-      // Step 1: Sign in with email and password
-      const { data: { user, session }, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      // Fetch user by email
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
 
-      if (authError) {
-        console.error('Authentication error:', authError);
+      if (userError || !user) {
         throw new Error('Identifiants invalides');
       }
 
-      if (!user || !session) {
-        throw new Error('Erreur lors de la connexion');
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        throw new Error('Identifiants invalides');
       }
 
-      console.log('Auth successful, user ID:', user.id);
+      // Generate a simple token (in a real app, use a proper JWT library)
+      const token = btoa(user.id + ':' + new Date().getTime());
 
-      // Step 2: Fetch user profile data
-      const { data: profile, error: profileError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('Profile fetch error:', profileError);
-        throw new Error('Erreur lors de la récupération du profil');
-      }
-
-      if (!profile) {
-        console.error('No profile found for user ID:', user.id);
-        throw new Error('Profil utilisateur non trouvé. Veuillez vous inscrire.');
-      }
-
-      console.log('Profile fetch successful:', profile);
-
-      setUser(profile);
-      setToken(session.access_token);
+      setUser(user);
+      setToken(token);
       router.replace('/(tabs)');
     } catch (error) {
       console.error('Login error:', error);

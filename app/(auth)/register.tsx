@@ -50,43 +50,25 @@ export default function RegisterScreen() {
       setIsLoading(true);
       setError(null);
 
-      console.log('Starting registration process...');
+      // Check if email already exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (existingUser) {
+        throw new Error('Cet email est déjà utilisé');
+      }
 
       // Hash the password
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
-      // 1. Create the user account with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-            phone: phone || null,
-            role: 'joueur'
-          }
-        }
-      });
-
-      if (authError) {
-        console.error('Auth Error:', authError);
-        throw authError;
-      }
-
-      if (!authData.user) {
-        console.error('No user data returned from auth');
-        throw new Error('No user data returned');
-      }
-
-      console.log('Auth successful, user ID:', authData.user.id);
-
-      // 2. Create the user profile in the users table
-      const { error: profileError } = await supabase
+      // Create user directly in the users table
+      const { data: newUser, error: createError } = await supabase
         .from('users')
         .insert({
-          id: authData.user.id,
           email,
           first_name: firstName,
           last_name: lastName,
@@ -95,19 +77,15 @@ export default function RegisterScreen() {
           subscription_status: isPaid,
           last_subscription_date: isPaid ? new Date().toISOString() : null,
           profile_image: profileImage || null,
-          password: hashedPassword // Store the hashed password
-        });
+          password: hashedPassword
+        })
+        .select()
+        .single();
 
-      if (profileError) {
-        console.error('Profile Error:', profileError);
-        // If profile creation fails, attempt to delete the auth user
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        throw profileError;
+      if (createError) {
+        throw createError;
       }
 
-      console.log('Profile created successfully');
-
-      // Success - redirect to login
       alert('Inscription réussie ! Vous pouvez maintenant vous connecter.');
       router.replace('/(auth)/login');
     } catch (error) {
