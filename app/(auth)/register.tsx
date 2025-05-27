@@ -51,13 +51,17 @@ export default function RegisterScreen() {
       setError(null);
 
       // Check if email already exists
-      const { data: existingUser } = await supabase
+      const { data: existingUsers, error: queryError } = await supabase
         .from('users')
         .select('id')
         .eq('email', email)
-        .single();
+        .limit(1);
 
-      if (existingUser) {
+      if (queryError) {
+        throw queryError;
+      }
+
+      if (existingUsers && existingUsers.length > 0) {
         throw new Error('Cet email est déjà utilisé');
       }
 
@@ -65,7 +69,7 @@ export default function RegisterScreen() {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
-      // Create user directly in the users table
+      // Create user
       const { data: newUser, error: createError } = await supabase
         .from('users')
         .insert({
