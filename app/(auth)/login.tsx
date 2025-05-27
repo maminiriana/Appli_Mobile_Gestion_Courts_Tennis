@@ -71,6 +71,10 @@ export default function LoginScreen() {
     }
   };
 
+  const handleForgotPassword = () => {
+    router.push('/forgot-password');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -121,7 +125,7 @@ export default function LoginScreen() {
 
           <TouchableOpacity 
             style={styles.forgotPassword}
-            onPress={() => {/* TODO: Implement forgot password */}}
+            onPress={handleForgotPassword}
           >
             <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
           </TouchableOpacity>
