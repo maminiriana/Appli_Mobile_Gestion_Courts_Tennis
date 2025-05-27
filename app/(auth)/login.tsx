@@ -27,15 +27,21 @@ export default function LoginScreen() {
       setError(null);
 
       // Fetch user by email
-      const { data: user, error: userError } = await supabase
+      const { data: users, error: queryError } = await supabase
         .from('users')
         .select('*')
         .eq('email', email)
-        .single();
+        .limit(1);
 
-      if (userError || !user) {
+      if (queryError) {
+        throw queryError;
+      }
+
+      if (!users || users.length === 0) {
         throw new Error('Identifiants invalides');
       }
+
+      const user = users[0];
 
       // Verify password
       const isValidPassword = await bcrypt.compare(password, user.password);
