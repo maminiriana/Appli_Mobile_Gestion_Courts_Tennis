@@ -18,6 +18,10 @@ export default function ProfileScreen() {
     router.replace('/');
   };
 
+  const handleEditProfile = () => {
+    router.push('/(tabs)/edit-profile');
+  };
+
   if (!user) {
     return (
       <SafeAreaView style={styles.container}>
@@ -32,26 +36,33 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Mon profil" />
-      {user?.profileImage && (
-        <Image
-          source={{ uri: user.profileImage }}
-          style={styles.profileImage}
-        />
-      )}
       
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileHeader}>
-          <Image 
-            source={{ uri: user.profileImage || 'https://via.placeholder.com/80' }}
-            style={styles.profileImage}
-          />
+          {user.profile_image ? (
+            <Image 
+              source={{ uri: user.profile_image }}
+              style={styles.profileImage}
+            />
+          ) : (
+            <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
+              <Text style={styles.profileImagePlaceholderText}>
+                {user.first_name?.charAt(0) || user.email.charAt(0)}
+              </Text>
+            </View>
+          )}
           <View style={styles.profileInfo}>
-            <Text style={styles.userName}>{user.firstName} {user.lastName}</Text>
-            <Text style={styles.membershipTag}>{user.membershipType || ''}</Text>
-            <TouchableOpacity style={styles.editButton}>
+            <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
+            <Text style={styles.membershipTag}>
+              {user.subscription_status ? 'Membre actif' : 'Membre inactif'}
+            </Text>
+            <TouchableOpacity 
+              style={styles.editButton}
+              onPress={handleEditProfile}
+            >
               <Edit2 size={14} color={theme.colors.primary} />
               <Text style={styles.editButtonText}>Modifier</Text>
             </TouchableOpacity>
@@ -68,13 +79,13 @@ export default function ProfileScreen() {
           
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Téléphone</Text>
-            <Text style={styles.infoValue}>{user.phoneNumber || ''}</Text>
+            <Text style={styles.infoValue}>{user.phone || 'Non renseigné'}</Text>
           </View>
           
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Membre depuis</Text>
             <Text style={styles.infoValue}>
-              {user.memberSince ? format(new Date(user.memberSince), 'MMMM yyyy', { locale: fr }) : ''}
+              {user.created_at ? format(new Date(user.created_at), 'MMMM yyyy', { locale: fr }) : 'Non renseigné'}
             </Text>
           </View>
         </View>
@@ -135,6 +146,16 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
+  },
+  profileImagePlaceholder: {
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImagePlaceholderText: {
+    color: theme.colors.background,
+    fontSize: 32,
+    fontFamily: theme.fonts.bold,
   },
   profileInfo: {
     marginLeft: theme.spacing.md,
