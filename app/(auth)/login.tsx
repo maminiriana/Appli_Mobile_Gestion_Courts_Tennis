@@ -30,29 +30,37 @@ export default function LoginScreen() {
       const { data: users, error: queryError } = await supabase
         .from('users')
         .select('*')
-        .eq('email', email)
+        .eq('email', email.toLowerCase().trim())
         .limit(1);
 
       if (queryError) {
-        throw queryError;
+        console.error('Database query error:', queryError);
+        throw new Error('Erreur lors de la connexion à la base de données');
       }
 
       if (!users || users.length === 0) {
-        throw new Error('Identifiants invalides');
+        throw new Error('Email non trouvé');
       }
 
       const user = users[0];
 
+      if (!user.password) {
+        throw new Error('Mot de passe non défini pour cet utilisateur');
+      }
+
       // Verify password
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
-        throw new Error('Identifiants invalides');
+        throw new Error('Mot de passe incorrect');
       }
 
       // Generate a simple token (in a real app, use a proper JWT library)
       const token = btoa(user.id + ':' + new Date().getTime());
 
-      setUser(user);
+      // Remove sensitive data before setting user in context
+      const { password: _, ...safeUser } = user;
+      
+      setUser(safeUser);
       setToken(token);
       router.replace('/(tabs)');
     } catch (error) {
@@ -89,6 +97,7 @@ export default function LoginScreen() {
                 placeholder="votre@email.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoComplete="email"
                 editable={!isLoading}
               />
             </View>
@@ -104,6 +113,7 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 placeholder="••••••••"
                 secureTextEntry
+                autoComplete="current-password"
                 editable={!isLoading}
               />
             </View>
