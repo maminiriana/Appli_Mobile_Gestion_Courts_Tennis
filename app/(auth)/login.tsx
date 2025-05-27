@@ -25,26 +25,41 @@ export default function LoginScreen() {
       setIsLoading(true);
       setError(null);
 
+      // Step 1: Sign in with email and password
       const { data: { user, session }, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        console.error('Authentication error:', authError);
+        throw new Error('Identifiants invalides');
+      }
 
       if (!user || !session) {
         throw new Error('Erreur lors de la connexion');
       }
 
-      // Fetch user profile data
+      console.log('Auth successful, user ID:', user.id);
+
+      // Step 2: Fetch user profile data
       const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (profileError) throw profileError;
-      if (!profile) throw new Error('Profil utilisateur non trouvé');
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+        throw new Error('Erreur lors de la récupération du profil');
+      }
+
+      if (!profile) {
+        console.error('No profile found for user ID:', user.id);
+        throw new Error('Profil utilisateur non trouvé. Veuillez vous inscrire.');
+      }
+
+      console.log('Profile fetch successful:', profile);
 
       setUser(profile);
       setToken(session.access_token);
