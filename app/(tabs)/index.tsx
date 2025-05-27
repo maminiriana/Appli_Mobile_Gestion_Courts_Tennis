@@ -45,16 +45,16 @@ export default function HomeScreen() {
                 />
               </>
             ) : (
-<TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
-                {user.profileImage ? (
+              <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
+                {user.profile_image ? (
                   <Image
-                    source={{ uri: user.profileImage }}
+                    source={{ uri: user.profile_image }}
                     style={styles.userIcon}
                   />
                 ) : (
                   <View style={styles.userIconPlaceholder}>
                     <Text style={styles.userIconText}>
-                      {user.firstName ? user.firstName.charAt(0) : 'U'}
+                      {user.first_name ? user.first_name.charAt(0) : 'U'}
                     </Text>
                   </View>
                 )}
