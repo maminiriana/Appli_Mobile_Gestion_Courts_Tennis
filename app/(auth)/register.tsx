@@ -23,52 +23,71 @@ export default function RegisterScreen() {
   const handleImageUpload = async () => {
     if (isLoading) return;
 
-    // Check if we're on web platform
-    if (Platform.OS === 'web') {
-      setError('La sélection d\'image n\'est pas disponible sur le web pour le moment');
-      return;
-    }
+    try {
+      setError(null);
+      setIsLoading(true);
 
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permissionResult.granted) {
-      setError('Permission d\'accès à la galerie refusée');
-      return;
-    }
-
-    const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!pickerResult.canceled) {
-      try {
-        setError(null);
-        setIsLoading(true);
+      if (Platform.OS === 'web') {
+        // Créer un input file invisible pour le web
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
         
-        const asset = pickerResult.assets[0];
-        const fileName = `${Date.now()}_${asset.fileName || 'profile'}.jpg`;
-        
-        // Créer le dossier des images de profil s'il n'existe pas
-        const profileImagesDir = `${FileSystem.documentDirectory}profile-images/`;
-        await FileSystem.makeDirectoryAsync(profileImagesDir, { intermediates: true });
-        
-        // Copier l'image vers notre dossier local
-        const newPath = `${profileImagesDir}${fileName}`;
-        await FileSystem.copyAsync({
-          from: asset.uri,
-          to: newPath
+        // Promisify l'événement change
+        const file = await new Promise<File>((resolve, reject) => {
+          input.onchange = (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (file) {
+              resolve(file);
+            } else {
+              reject(new Error('Aucun fichier sélectionné'));
+            }
+          };
+          input.click();
         });
 
-        setProfileImage(newPath);
-      } catch (error) {
-        console.error('Erreur lors de l\'upload de l\'image:', error);
-        setError('Erreur lors de l\'upload de l\'image');
-      } finally {
-        setIsLoading(false);
+        // Créer une URL pour l'aperçu de l'image
+        const imageUrl = URL.createObjectURL(file);
+        setProfileImage(imageUrl);
+      } else {
+        // Code mobile existant
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (!permissionResult.granted) {
+          setError('Permission d\'accès à la galerie refusée');
+          return;
+        }
+
+        const pickerResult = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 1,
+        });
+
+        if (!pickerResult.canceled) {
+          const asset = pickerResult.assets[0];
+          const fileName = `${Date.now()}_${asset.fileName || 'profile'}.jpg`;
+          
+          // Créer le dossier des images de profil s'il n'existe pas
+          const profileImagesDir = `${FileSystem.documentDirectory}profile-images/`;
+          await FileSystem.makeDirectoryAsync(profileImagesDir, { intermediates: true });
+          
+          // Copier l'image vers notre dossier local
+          const newPath = `${profileImagesDir}${fileName}`;
+          await FileSystem.copyAsync({
+            from: asset.uri,
+            to: newPath
+          });
+
+          setProfileImage(newPath);
+        }
       }
+    } catch (error) {
+      console.error('Erreur lors de l\'upload de l\'image:', error);
+      setError('Erreur lors de l\'upload de l\'image');
+    } finally {
+      setIsLoading(false);
     }
   };
 
