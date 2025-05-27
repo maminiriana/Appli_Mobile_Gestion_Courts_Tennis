@@ -5,6 +5,7 @@ import { theme } from '../../constants/theme';
 import Button from '../../components/Button';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
+import bcrypt from 'bcryptjs';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -51,6 +52,10 @@ export default function RegisterScreen() {
 
       console.log('Starting registration process...');
 
+      // Hash the password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
       // 1. Create the user account with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
@@ -90,7 +95,7 @@ export default function RegisterScreen() {
           subscription_status: isPaid,
           last_subscription_date: isPaid ? new Date().toISOString() : null,
           profile_image: profileImage || null,
-          password: password // Add password to the users table
+          password: hashedPassword // Store the hashed password
         });
 
       if (profileError) {
