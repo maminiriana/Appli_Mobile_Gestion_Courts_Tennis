@@ -8,7 +8,8 @@ import {
   ScrollView, 
   SafeAreaView, 
   Image, 
-  Alert 
+  Alert,
+  Platform 
 } from 'react-native';
 import { theme } from '../../constants/theme';
 import { useAuth } from '../context/AuthContext';
@@ -19,110 +20,147 @@ import * as FileSystem from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator } from 'react-native';
 import Button from '../../components/Button';
+import { Camera, Upload } from 'lucide-react-native';
 
 export default function EditProfileScreen() {
   const { user, setUser } = useAuth();
   const router = useRouter();
-  const [firstName, setFirstName] = useState<string>(user?.firstName || '');
-  const [lastName, setLastName] = useState<string>(user?.lastName || '');
-  const [phone, setPhone] = useState<string>(user?.phoneNumber || '');
-  const [profileImage, setProfileImage] = useState<string | null>(user?.profileImage || null);
+  const [firstName, setFirstName] = useState<string>(user?.first_name || '');
+  const [lastName, setLastName] = useState<string>(user?.last_name || '');
+  const [phone, setPhone] = useState<string>(user?.phone || '');
+  const [profileImage, setProfileImage] = useState<string | null>(user?.profile_image || null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
 
   const handleImageUpload = async () => {
-    if (isLoading) return;
+    if (isLoading || isUploading) return;
 
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      setError(null);
+      setIsUploading(true);
 
-    if (!permissionResult.granted) {
-      setError('Permission d\'accès à la galerie refusée');
-      return;
-    }
-
-    const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!pickerResult.canceled) {
-      try {
-        setError(null);
-        setIsLoading(true);
+      if (Platform.OS === 'web') {
+        // Créer un input file invisible pour le web
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
         
-        const asset = pickerResult.assets[0];
-        const fileName = `${Date.now()}_${asset.fileName || 'profile'}.jpg`;
-        
-        // Convertir l'image en base64
-        const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
-        
-        // Uploader l'image vers Supabase Storage
-        const { error: uploadError } = await supabase.storage
+        // Promisify l'événement change
+        const file = await new Promise<File>((resolve, reject) => {
+          input.onchange = (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (file) {
+              resolve(file);
+            } else {
+              reject(new Error('Aucun fichier sélectionné'));
+            }
+          };
+          input.click();
+        });
+
+        // Upload vers Supabase Storage
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const { error: uploadError, data } = await supabase.storage
           .from('profile-images')
-          .upload(fileName, base64, {
-            contentType: 'image/jpeg',
-            upsert: true,
-          });
+          .upload(fileName, file);
 
         if (uploadError) throw uploadError;
 
-        // Obtenir l'URL publique de l'image
+        // Obtenir l'URL publique
         const { data: { publicUrl } } = supabase.storage
           .from('profile-images')
           .getPublicUrl(fileName);
 
         setProfileImage(publicUrl);
-        Alert.alert('Succès', 'Photo de profil mise à jour avec succès');
-      } catch (error) {
-        console.error('Erreur lors de l\'upload de l\'image:', error);
-        setError('Erreur lors de l\'upload de l\'image');
-      } finally {
-        setIsLoading(false);
+
+      } else {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (!permissionResult.granted) {
+          throw new Error('Permission d\'accès à la galerie refusée');
+        }
+
+        const pickerResult = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 1,
+        });
+
+        if (!pickerResult.canceled) {
+          const asset = pickerResult.assets[0];
+          
+          // Convertir l'URI en base64
+          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+
+          // Upload vers Supabase Storage
+          const fileName = `${Date.now()}.jpg`;
+          const { error: uploadError, data } = await supabase.storage
+            .from('profile-images')
+            .upload(fileName, decode(base64), {
+              contentType: 'image/jpeg',
+            });
+
+          if (uploadError) throw uploadError;
+
+          // Obtenir l'URL publique
+          const { data: { publicUrl } } = supabase.storage
+            .from('profile-images')
+            .getPublicUrl(fileName);
+
+          setProfileImage(publicUrl);
+        }
       }
+
+      Alert.alert('Succès', 'Photo de profil mise à jour avec succès');
+    } catch (error) {
+      console.error('Erreur lors de l\'upload de l\'image:', error);
+      setError(error instanceof Error ? error.message : 'Erreur lors de l\'upload de l\'image');
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const handleSave = async () => {
     if (!user) return;
 
-    // Validation des champs
-    if (!firstName.trim() || !lastName.trim() || !phone.trim()) {
-      setError('Veuillez remplir tous les champs obligatoires');
+    if (!firstName.trim() || !lastName.trim()) {
+      setError('Le nom et le prénom sont obligatoires');
       return;
     }
 
     setIsLoading(true);
     setError(null);
     try {
-      // Mettre à jour les informations de l'utilisateur
       const { error: updateError } = await supabase
         .from('users')
         .update({
           first_name: firstName,
           last_name: lastName,
           phone: phone,
-          profile_image: profileImage || user.profileImage,
+          profile_image: profileImage,
         })
         .eq('id', user.id);
 
       if (updateError) throw updateError;
 
-      // Mettre à jour le contexte
       setUser({
         ...user,
-        firstName,
-        lastName,
-        phoneNumber: phone,
-        profileImage: profileImage || user.profileImage,
+        first_name: firstName,
+        last_name: lastName,
+        phone: phone,
+        profile_image: profileImage,
       } as User);
 
       Alert.alert('Succès', 'Profil mis à jour avec succès');
       router.back();
     } catch (error) {
       console.error('Erreur lors de la mise à jour du profil:', error);
-      setError('Erreur lors de la mise à jour du profil');
+      setError(error instanceof Error ? error.message : 'Erreur lors de la mise à jour du profil');
     } finally {
       setIsLoading(false);
     }
@@ -143,25 +181,35 @@ export default function EditProfileScreen() {
           )}
 
           <View style={styles.profileImageContainer}>
-            {profileImage ? (
-              <Image
-                source={{ uri: profileImage }}
-                style={styles.profileImage}
-              />
-            ) : (
-              <View style={styles.placeholder}>
-                <Text style={styles.placeholderText}>Aucune photo</Text>
-              </View>
-            )}
-            <TouchableOpacity
-              style={styles.uploadButton}
+            <TouchableOpacity 
+              style={styles.imageWrapper}
               onPress={handleImageUpload}
-              disabled={isLoading}
+              disabled={isUploading}
             >
-              <Text style={styles.uploadButtonText}>
-                {isLoading ? 'Chargement...' : 'Modifier la photo'}
-              </Text>
+              {profileImage ? (
+                <>
+                  <Image
+                    source={{ uri: profileImage }}
+                    style={styles.profileImage}
+                  />
+                  <View style={styles.uploadOverlay}>
+                    <Upload size={24} color={theme.colors.background} />
+                  </View>
+                </>
+              ) : (
+                <View style={styles.placeholder}>
+                  <Camera size={40} color={theme.colors.gray[400]} />
+                </View>
+              )}
+              {isUploading && (
+                <View style={styles.loadingOverlay}>
+                  <ActivityIndicator color={theme.colors.background} size="large" />
+                </View>
+              )}
             </TouchableOpacity>
+            <Text style={styles.uploadText}>
+              {isUploading ? 'Chargement...' : 'Modifier la photo'}
+            </Text>
           </View>
 
           <View style={styles.form}>
@@ -206,7 +254,7 @@ export default function EditProfileScreen() {
               onPress={handleSave}
               style={styles.saveButton}
               size="lg"
-              disabled={isLoading}
+              disabled={isLoading || isUploading}
             />
           </View>
         </View>
@@ -241,35 +289,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.lg,
   },
-  profileImage: {
+  imageWrapper: {
+    position: 'relative',
     width: 120,
     height: 120,
     borderRadius: 60,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    overflow: 'hidden',
   },
-  placeholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: theme.colors.gray[200],
+  profileImage: {
+    width: '100%',
+    height: '100%',
+  },
+  uploadOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 40,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  placeholderText: {
-    fontFamily: theme.fonts.regular,
-    fontSize: theme.fontSizes.md,
-    color: theme.colors.gray[500],
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  uploadButton: {
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
+  placeholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: theme.colors.gray[200],
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 60,
   },
-  uploadButtonText: {
+  uploadText: {
     fontFamily: theme.fonts.medium,
     fontSize: theme.fontSizes.md,
-    color: 'white',
+    color: theme.colors.primary,
   },
   form: {
     backgroundColor: theme.colors.background,
@@ -303,13 +362,5 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: theme.colors.gray[300],
-  },
-  saveButtonText: {
-    fontFamily: theme.fonts.medium,
-    fontSize: theme.fontSizes.md,
-    color: 'white',
   },
 });
