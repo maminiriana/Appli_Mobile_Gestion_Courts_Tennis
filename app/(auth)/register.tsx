@@ -6,6 +6,7 @@ import Button from '../../components/Button';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';
+import * as FileSystem from 'expo-file-system';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -20,10 +21,12 @@ export default function RegisterScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleImageUpload = async () => {
+    if (isLoading) return;
+
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permissionResult.granted) {
-      alert('Permission d\'accès à la galerie refusée.');
+      setError('Permission d\'accès à la galerie refusée');
       return;
     }
 
@@ -35,8 +38,31 @@ export default function RegisterScreen() {
     });
 
     if (!pickerResult.canceled) {
-      const uploadedImageUrl = pickerResult.assets[0].uri;
-      setProfileImage(uploadedImageUrl);
+      try {
+        setError(null);
+        setIsLoading(true);
+        
+        const asset = pickerResult.assets[0];
+        const fileName = `${Date.now()}_${asset.fileName || 'profile'}.jpg`;
+        
+        // Créer le dossier des images de profil s'il n'existe pas
+        const profileImagesDir = `${FileSystem.documentDirectory}profile-images/`;
+        await FileSystem.makeDirectoryAsync(profileImagesDir, { intermediates: true });
+        
+        // Copier l'image vers notre dossier local
+        const newPath = `${profileImagesDir}${fileName}`;
+        await FileSystem.copyAsync({
+          from: asset.uri,
+          to: newPath
+        });
+
+        setProfileImage(newPath);
+      } catch (error) {
+        console.error('Erreur lors de l\'upload de l\'image:', error);
+        setError('Erreur lors de l\'upload de l\'image');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
