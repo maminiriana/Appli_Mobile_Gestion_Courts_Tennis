@@ -100,18 +100,19 @@ export default function CourtsManagementScreen() {
 
   const toggleFeature = (feature: string) => {
     setNewCourt(prev => {
-      const features = prev.features || [];
-      if (features.includes(feature)) {
-        return {
-          ...prev,
-          features: features.filter(f => f !== feature)
-        };
+      const features = [...(prev.features || [])];
+      const index = features.indexOf(feature);
+      
+      if (index > -1) {
+        features.splice(index, 1);
       } else {
-        return {
-          ...prev,
-          features: [...features, feature]
-        };
+        features.push(feature);
       }
+      
+      return {
+        ...prev,
+        features
+      };
     });
   };
 
@@ -166,17 +167,13 @@ export default function CourtsManagementScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Caractéristiques</Text>
               {AVAILABLE_FEATURES.map((feature, index) => (
-                <TouchableOpacity 
-                  key={index}
-                  style={styles.featureCheckbox}
-                  onPress={() => toggleFeature(feature)}
-                >
+                <View key={index} style={styles.featureCheckbox}>
                   <Switch
                     value={newCourt.features?.includes(feature)}
                     onValueChange={() => toggleFeature(feature)}
                   />
                   <Text style={styles.featureLabel}>{feature}</Text>
-                </TouchableOpacity>
+                </View>
               ))}
             </View>
 
@@ -342,10 +339,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.gray[100],
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     padding: theme.spacing.md,
     backgroundColor: theme.colors.background,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray[200],
   },
