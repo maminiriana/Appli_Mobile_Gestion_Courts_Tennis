@@ -22,6 +22,133 @@ const AVAILABLE_FEATURES = [
   'Filet neuf'
 ];
 
+const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
+  const [courtData, setCourtData] = useState({
+    name: '',
+    description: '',
+    surface: '',
+    indoor: false,
+    features: [],
+    image_url: ''
+  });
+
+  const toggleFeature = (feature) => {
+    setCourtData(prev => {
+      const features = [...prev.features];
+      const index = features.indexOf(feature);
+      if (index > -1) {
+        features.splice(index, 1);
+      } else {
+        features.push(feature);
+      }
+      return { ...prev, features };
+    });
+  };
+
+  const handleSubmit = () => {
+    onSubmit(courtData);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Ajouter un court</Text>
+            <TouchableOpacity onPress={onClose}>
+              <X size={24} color={theme.colors.gray[600]} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nom *</Text>
+              <TextInput
+                style={styles.input}
+                value={courtData.name}
+                onChangeText={(text) => setCourtData(prev => ({ ...prev, name: text }))}
+                placeholder="Nom du court"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Description</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={courtData.description}
+                onChangeText={(text) => setCourtData(prev => ({ ...prev, description: text }))}
+                placeholder="Description du court"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Surface *</Text>
+              <TextInput
+                style={styles.input}
+                value={courtData.surface}
+                onChangeText={(text) => setCourtData(prev => ({ ...prev, surface: text }))}
+                placeholder="Type de surface"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Caractéristiques</Text>
+              {AVAILABLE_FEATURES.map((feature, index) => (
+                <View key={index} style={styles.featureCheckbox}>
+                  <Switch
+                    value={courtData.features.includes(feature)}
+                    onValueChange={() => toggleFeature(feature)}
+                  />
+                  <Text style={styles.featureLabel}>{feature}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Court intérieur</Text>
+              <Switch
+                value={courtData.indoor}
+                onValueChange={(value) => setCourtData(prev => ({ ...prev, indoor: value }))}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>URL de l'image</Text>
+              <TextInput
+                style={styles.input}
+                value={courtData.image_url}
+                onChangeText={(text) => setCourtData(prev => ({ ...prev, image_url: text }))}
+                placeholder="URL de l'image du court"
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Button
+              title="Annuler"
+              onPress={onClose}
+              variant="outline"
+              style={styles.modalButton}
+            />
+            <Button
+              title="Ajouter"
+              onPress={handleSubmit}
+              style={styles.modalButton}
+              disabled={isLoading}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export default function CourtsManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterActive, setFilterActive] = useState(false);
@@ -30,14 +157,6 @@ export default function CourtsManagementScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newCourt, setNewCourt] = useState({
-    name: '',
-    description: '',
-    surface: '',
-    indoor: false,
-    features: [],
-    image_url: ''
-  });
 
   useEffect(() => {
     fetchCourts();
@@ -61,8 +180,8 @@ export default function CourtsManagementScreen() {
     }
   };
 
-  const handleAddCourt = async () => {
-    if (!newCourt.name || !newCourt.surface) {
+  const handleAddCourt = async (courtData) => {
+    if (!courtData.name || !courtData.surface) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -72,7 +191,7 @@ export default function CourtsManagementScreen() {
       const { error } = await supabase
         .from('courts')
         .insert({
-          ...newCourt,
+          ...courtData,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
@@ -81,14 +200,6 @@ export default function CourtsManagementScreen() {
 
       Alert.alert('Succès', 'Le court a été ajouté avec succès');
       setShowAddModal(false);
-      setNewCourt({
-        name: '',
-        description: '',
-        surface: '',
-        indoor: false,
-        features: [],
-        image_url: ''
-      });
       await fetchCourts();
     } catch (err) {
       console.error('Error adding court:', err);
@@ -98,124 +209,7 @@ export default function CourtsManagementScreen() {
     }
   };
 
-  const toggleFeature = (feature: string) => {
-    setNewCourt(prev => {
-      const features = [...(prev.features || [])];
-      const index = features.indexOf(feature);
-      
-      if (index > -1) {
-        features.splice(index, 1);
-      } else {
-        features.push(feature);
-      }
-      
-      return {
-        ...prev,
-        features
-      };
-    });
-  };
-
-  const AddCourtModal = () => (
-    <Modal
-      visible={showAddModal}
-      animationType="slide"
-      transparent={true}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Ajouter un court</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}>
-              <X size={24} color={theme.colors.gray[600]} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Nom *</Text>
-              <TextInput
-                style={styles.input}
-                value={newCourt.name}
-                onChangeText={(text) => setNewCourt(prev => ({ ...prev, name: text }))}
-                placeholder="Nom du court"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Description</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={newCourt.description}
-                onChangeText={(text) => setNewCourt(prev => ({ ...prev, description: text }))}
-                placeholder="Description du court"
-                multiline
-                numberOfLines={4}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Surface *</Text>
-              <TextInput
-                style={styles.input}
-                value={newCourt.surface}
-                onChangeText={(text) => setNewCourt(prev => ({ ...prev, surface: text }))}
-                placeholder="Type de surface"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Caractéristiques</Text>
-              {AVAILABLE_FEATURES.map((feature, index) => (
-                <View key={index} style={styles.featureCheckbox}>
-                  <Switch
-                    value={newCourt.features?.includes(feature)}
-                    onValueChange={() => toggleFeature(feature)}
-                  />
-                  <Text style={styles.featureLabel}>{feature}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Court intérieur</Text>
-              <Switch
-                value={newCourt.indoor}
-                onValueChange={(value) => setNewCourt(prev => ({ ...prev, indoor: value }))}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>URL de l'image</Text>
-              <TextInput
-                style={styles.input}
-                value={newCourt.image_url}
-                onChangeText={(text) => setNewCourt(prev => ({ ...prev, image_url: text }))}
-                placeholder="URL de l'image du court"
-              />
-            </View>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <Button
-              title="Annuler"
-              onPress={() => setShowAddModal(false)}
-              variant="outline"
-              style={styles.modalButton}
-            />
-            <Button
-              title="Ajouter"
-              onPress={handleAddCourt}
-              style={styles.modalButton}
-              disabled={loading}
-            />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  if (loading) {
+  if (loading && courts.length === 0) {
     return (
       <View style={styles.container}>
         <Text style={styles.loadingText}>Chargement des courts...</Text>
@@ -328,7 +322,12 @@ export default function CourtsManagementScreen() {
           ))}
       </ScrollView>
 
-      <AddCourtModal />
+      <AddCourtModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSubmit={handleAddCourt}
+        isLoading={loading}
+      />
     </View>
   );
 }
