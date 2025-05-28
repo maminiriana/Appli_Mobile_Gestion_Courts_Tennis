@@ -1,22 +1,90 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { theme } from '@/constants/theme';
 import { Search, Filter, Calendar, Clock, MapPin, User } from 'lucide-react-native';
-import { bookings, courts } from '@/constants/mockData';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import DatePicker from '@/components/DatePicker';
+import { supabase } from '@/lib/supabase';
 
 export default function BookingsManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showFilters, setShowFilters] = useState(false);
+  const [bookings, setBookings] = useState([]);
+  const [courts, setCourts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const filteredBookings = bookings.filter(booking => {
-    const court = courts.find(c => c.id === booking.courtId);
-    const searchString = `${court?.name} ${booking.userId}`.toLowerCase();
-    return searchString.includes(searchQuery.toLowerCase());
-  });
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch courts first
+      const { data: courtsData, error: courtsError } = await supabase
+        .from('courts')
+        .select('*');
+
+      if (courtsError) throw courtsError;
+      setCourts(courtsData);
+
+      // Then fetch bookings with user information
+      const { data: bookingsData, error: bookingsError } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          users (
+            id,
+            first_name,
+            last_name,
+            email
+          )
+        `)
+        .order('start_time', { ascending: true });
+
+      if (bookingsError) throw bookingsError;
+      setBookings(bookingsData);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelBooking = async (bookingId: string) => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', bookingId);
+
+      if (error) throw error;
+      await fetchData();
+    } catch (err) {
+      console.error('Error cancelling booking:', err);
+      setError(err.message);
+    }
+  };
+
+  const handleConfirmBooking = async (bookingId: string) => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'confirmed' })
+        .eq('id', bookingId);
+
+      if (error) throw error;
+      await fetchData();
+    } catch (err) {
+      console.error('Error confirming booking:', err);
+      setError(err.message);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -46,15 +114,28 @@ export default function BookingsManagementScreen() {
     }
   };
 
-  const handleCancelBooking = (bookingId: string) => {
-    // TODO: Implement booking cancellation
-    console.log('Cancel booking:', bookingId);
-  };
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Chargement des réservations...</Text>
+      </View>
+    );
+  }
 
-  const handleConfirmBooking = (bookingId: string) => {
-    // TODO: Implement booking confirmation
-    console.log('Confirm booking:', bookingId);
-  };
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Erreur: {error}</Text>
+      </View>
+    );
+  }
+
+  const filteredBookings = bookings.filter(booking => {
+    const court = courts.find(c => c.id === booking.court_id);
+    const user = booking.users;
+    const searchString = `${court?.name} ${user?.first_name} ${user?.last_name} ${user?.email}`.toLowerCase();
+    return searchString.includes(searchQuery.toLowerCase());
+  });
 
   return (
     <View style={styles.container}>
@@ -89,7 +170,8 @@ export default function BookingsManagementScreen() {
 
       <ScrollView style={styles.content}>
         {filteredBookings.map(booking => {
-          const court = courts.find(c => c.id === booking.courtId);
+          const court = courts.find(c => c.id === booking.court_id);
+          const user = booking.users;
           
           return (
             <View key={booking.id} style={styles.bookingCard}>
@@ -114,14 +196,14 @@ export default function BookingsManagementScreen() {
                 <View style={styles.detailRow}>
                   <Calendar size={16} color={theme.colors.gray[600]} />
                   <Text style={styles.detailText}>
-                    {format(booking.startTime, 'EEEE d MMMM yyyy', { locale: fr })}
+                    {format(new Date(booking.start_time), 'EEEE d MMMM yyyy', { locale: fr })}
                   </Text>
                 </View>
 
                 <View style={styles.detailRow}>
                   <Clock size={16} color={theme.colors.gray[600]} />
                   <Text style={styles.detailText}>
-                    {format(booking.startTime, 'HH:mm')} - {format(booking.endTime, 'HH:mm')}
+                    {format(new Date(booking.start_time), 'HH:mm')} - {format(new Date(booking.end_time), 'HH:mm')}
                   </Text>
                 </View>
 
@@ -135,7 +217,7 @@ export default function BookingsManagementScreen() {
                 <View style={styles.detailRow}>
                   <User size={16} color={theme.colors.gray[600]} />
                   <Text style={styles.detailText}>
-                    ID Utilisateur: {booking.userId}
+                    {user?.first_name} {user?.last_name} ({user?.email})
                   </Text>
                 </View>
               </View>
@@ -277,5 +359,19 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: theme.colors.error,
+  },
+  loadingText: {
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.lg,
+    color: theme.colors.gray[600],
+    textAlign: 'center',
+    marginTop: theme.spacing.xl,
+  },
+  errorText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.lg,
+    color: theme.colors.error,
+    textAlign: 'center',
+    marginTop: theme.spacing.xl,
   },
 });
