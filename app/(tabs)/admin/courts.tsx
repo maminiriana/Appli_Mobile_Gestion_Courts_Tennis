@@ -136,13 +136,16 @@ export default function CourtsManagementScreen() {
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Ajouter un court</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+            <TouchableOpacity 
+              onPress={() => setShowAddModal(false)}
+              style={styles.closeButton}
+            >
               <X size={24} color={theme.colors.gray[600]} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView>
-            <View style={styles.inputGroup}>
+          <ScrollView style={styles.modalScroll}>
+            <View style={styles.formGroup}>
               <Text style={styles.label}>Nom *</Text>
               <TextInput
                 style={styles.input}
@@ -152,7 +155,7 @@ export default function CourtsManagementScreen() {
               />
             </View>
 
-            <View style={styles.inputGroup}>
+            <View style={styles.formGroup}>
               <Text style={styles.label}>Description</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
@@ -161,10 +164,11 @@ export default function CourtsManagementScreen() {
                 placeholder="Description du court"
                 multiline
                 numberOfLines={4}
+                textAlignVertical="top"
               />
             </View>
 
-            <View style={styles.inputGroup}>
+            <View style={styles.formGroup}>
               <Text style={styles.label}>Surface *</Text>
               <TextInput
                 style={styles.input}
@@ -174,7 +178,7 @@ export default function CourtsManagementScreen() {
               />
             </View>
 
-            <View style={styles.inputGroup}>
+            <View style={styles.formGroup}>
               <Text style={styles.label}>URL de l'image</Text>
               <TextInput
                 style={styles.input}
@@ -184,19 +188,23 @@ export default function CourtsManagementScreen() {
               />
             </View>
 
-            <View style={styles.inputGroup}>
+            <View style={styles.switchGroup}>
               <Text style={styles.label}>Court intérieur</Text>
               <Switch
                 value={newCourt.indoor}
                 onValueChange={(value) => setNewCourt(prev => ({ ...prev, indoor: value }))}
+                trackColor={{ false: theme.colors.gray[300], true: theme.colors.primary }}
+                thumbColor={theme.colors.background}
               />
             </View>
 
-            <View style={styles.inputGroup}>
+            <View style={styles.switchGroup}>
               <Text style={styles.label}>Court actif</Text>
               <Switch
                 value={newCourt.is_active}
                 onValueChange={(value) => setNewCourt(prev => ({ ...prev, is_active: value }))}
+                trackColor={{ false: theme.colors.gray[300], true: theme.colors.primary }}
+                thumbColor={theme.colors.background}
               />
             </View>
           </ScrollView>
@@ -327,16 +335,19 @@ const styles = StyleSheet.create({
   header: {
     padding: theme.spacing.md,
     backgroundColor: theme.colors.background,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray[200],
   },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.gray[100],
     borderRadius: theme.borderRadius.md,
     paddingHorizontal: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
+    marginRight: theme.spacing.sm,
   },
   searchIcon: {
     marginRight: theme.spacing.sm,
@@ -347,15 +358,8 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.regular,
     fontSize: theme.fontSizes.md,
   },
-  filterOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  filterText: {
-    fontFamily: theme.fonts.regular,
-    fontSize: theme.fontSizes.md,
-    color: theme.colors.text,
+  addButton: {
+    padding: theme.spacing.sm,
   },
   content: {
     padding: theme.spacing.md,
@@ -446,6 +450,75 @@ const styles = StyleSheet.create({
   deactivateButton: {
     backgroundColor: theme.colors.error,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    padding: theme.spacing.md,
+  },
+  modalContent: {
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.lg,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray[200],
+  },
+  modalTitle: {
+    fontFamily: theme.fonts.semiBold,
+    fontSize: theme.fontSizes.xl,
+    color: theme.colors.text,
+  },
+  closeButton: {
+    padding: theme.spacing.xs,
+  },
+  modalScroll: {
+    padding: theme.spacing.lg,
+  },
+  formGroup: {
+    marginBottom: theme.spacing.md,
+  },
+  switchGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  label: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.gray[700],
+    marginBottom: theme.spacing.xs,
+  },
+  input: {
+    backgroundColor: theme.colors.gray[100],
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.text,
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: theme.spacing.md,
+    padding: theme.spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.gray[200],
+  },
+  modalButton: {
+    minWidth: 120,
+  },
   loadingText: {
     fontFamily: theme.fonts.regular,
     fontSize: theme.fontSizes.lg,
@@ -460,8 +533,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: theme.spacing.xl,
   },
-  addButton: {
-    padding: theme.spacing.sm,
-    marginLeft: theme.spacing.sm,
-  }
 });
