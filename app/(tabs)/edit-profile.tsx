@@ -59,21 +59,16 @@ export default function EditProfileScreen() {
           input.click();
         });
 
-        // Upload vers Supabase Storage
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        const { error: uploadError, data } = await supabase.storage
-          .from('profile-images')
-          .upload(fileName, file);
+        // Convertir le fichier en base64
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+        });
 
-        if (uploadError) throw uploadError;
-
-        // Obtenir l'URL publique
-        const { data: { publicUrl } } = supabase.storage
-          .from('profile-images')
-          .getPublicUrl(fileName);
-
-        setProfileImage(publicUrl);
+        setProfileImage(base64);
 
       } else {
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -87,32 +82,12 @@ export default function EditProfileScreen() {
           allowsEditing: true,
           aspect: [1, 1],
           quality: 1,
+          base64: true,
         });
 
-        if (!pickerResult.canceled) {
-          const asset = pickerResult.assets[0];
-          
-          // Convertir l'URI en base64
-          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-
-          // Upload vers Supabase Storage
-          const fileName = `${Date.now()}.jpg`;
-          const { error: uploadError, data } = await supabase.storage
-            .from('profile-images')
-            .upload(fileName, decode(base64), {
-              contentType: 'image/jpeg',
-            });
-
-          if (uploadError) throw uploadError;
-
-          // Obtenir l'URL publique
-          const { data: { publicUrl } } = supabase.storage
-            .from('profile-images')
-            .getPublicUrl(fileName);
-
-          setProfileImage(publicUrl);
+        if (!pickerResult.canceled && pickerResult.assets[0].base64) {
+          const base64Image = `data:image/jpeg;base64,${pickerResult.assets[0].base64}`;
+          setProfileImage(base64Image);
         }
       }
 
