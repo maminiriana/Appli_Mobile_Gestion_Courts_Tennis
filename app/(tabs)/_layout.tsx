@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { Chrome as Home, Calendar, User, Settings } from 'lucide-react-native';
+import { Chrome as Home, Calendar, User, Settings, ShieldCheck } from 'lucide-react-native';
 import { theme } from '@/constants/theme';
 
 export default function TabLayout() {
@@ -39,6 +39,13 @@ export default function TabLayout() {
         options={{
           title: 'Paramètres',
           tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="admin"
+        options={{
+          title: 'Admin',
+          tabBarIcon: ({ color, size }) => <ShieldCheck size={size} color={color} />,
         }}
       />
     </Tabs>
