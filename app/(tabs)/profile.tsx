@@ -33,6 +33,35 @@ export default function ProfileScreen() {
     );
   }
 
+  const renderProfileImage = () => {
+    if (user.profile_image) {
+      // Si l'image est en base64, elle commencera par 'data:'
+      if (user.profile_image.startsWith('data:')) {
+        return (
+          <Image 
+            source={{ uri: user.profile_image }}
+            style={styles.profileImage}
+          />
+        );
+      }
+      // Sinon, c'est une URL classique
+      return (
+        <Image 
+          source={{ uri: user.profile_image }}
+          style={styles.profileImage}
+        />
+      );
+    }
+    
+    return (
+      <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
+        <Text style={styles.profileImagePlaceholderText}>
+          {user.first_name?.charAt(0) || user.email.charAt(0)}
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Mon profil" />
@@ -42,18 +71,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileHeader}>
-          {user.profile_image ? (
-            <Image 
-              source={{ uri: user.profile_image }}
-              style={styles.profileImage}
-            />
-          ) : (
-            <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
-              <Text style={styles.profileImagePlaceholderText}>
-                {user.first_name?.charAt(0) || user.email.charAt(0)}
-              </Text>
-            </View>
-          )}
+          {renderProfileImage()}
           <View style={styles.profileInfo}>
             <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
             <Text style={styles.membershipTag}>
