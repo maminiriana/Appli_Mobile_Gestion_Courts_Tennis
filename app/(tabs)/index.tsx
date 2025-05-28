@@ -23,6 +23,37 @@ export default function HomeScreen() {
     court.surface.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const renderProfileImage = () => {
+    if (!user) return null;
+
+    if (user.profile_image) {
+      // Si l'image est en base64, elle commencera par 'data:'
+      if (user.profile_image.startsWith('data:')) {
+        return (
+          <Image
+            source={{ uri: user.profile_image }}
+            style={styles.userIcon}
+          />
+        );
+      }
+      // Sinon, c'est une URL classique
+      return (
+        <Image
+          source={{ uri: user.profile_image }}
+          style={styles.userIcon}
+        />
+      );
+    }
+
+    return (
+      <View style={styles.userIconPlaceholder}>
+        <Text style={styles.userIconText}>
+          {user.first_name ? user.first_name.charAt(0) : 'U'}
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -46,18 +77,7 @@ export default function HomeScreen() {
               </>
             ) : (
               <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
-                {user.profile_image ? (
-                  <Image
-                    source={{ uri: user.profile_image }}
-                    style={styles.userIcon}
-                  />
-                ) : (
-                  <View style={styles.userIconPlaceholder}>
-                    <Text style={styles.userIconText}>
-                      {user.first_name ? user.first_name.charAt(0) : 'U'}
-                    </Text>
-                  </View>
-                )}
+                {renderProfileImage()}
               </TouchableOpacity>
             )}
           </View>
