@@ -13,7 +13,7 @@ import {
   Platform
 } from 'react-native';
 import { theme } from '@/constants/theme';
-import { Search, Filter, UserCheck, UserX, Shield, Edit2, X } from 'lucide-react-native';
+import { Search, Filter, UserCheck, UserX, Shield, CreditCard as Edit2, X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
