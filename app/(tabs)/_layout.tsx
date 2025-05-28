@@ -48,6 +48,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => <ShieldCheck size={size} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="edit-profile"
+        options={{
+          href: null, // This prevents the route from being accessible via direct URL
+          tabBarButton: () => null, // This hides the tab button completely
+        }}
+      />
     </Tabs>
   );
 }
