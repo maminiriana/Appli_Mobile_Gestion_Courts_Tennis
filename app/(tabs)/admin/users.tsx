@@ -130,28 +130,21 @@ export default function UsersManagementScreen() {
     try {
       const newRole = currentRole === 'admin' ? 'joueur' : 'admin';
       
-      Alert.alert(
-        'Confirmation',
-        `Êtes-vous sûr de vouloir ${newRole === 'admin' ? 'promouvoir' : 'rétrograder'} cet utilisateur ?`,
-        [
-          { text: 'Annuler', style: 'cancel' },
-          {
-            text: 'Confirmer',
-            onPress: async () => {
-              const { error } = await supabase
-                .from('users')
-                .update({ role: newRole })
-                .eq('id', userId);
+      const { error } = await supabase
+        .from('users')
+        .update({ role: newRole })
+        .eq('id', userId);
 
-              if (error) throw error;
-              await fetchUsers();
-            },
-          },
-        ],
+      if (error) throw error;
+
+      await fetchUsers();
+      Alert.alert(
+        'Succès',
+        `L'utilisateur est maintenant ${newRole === 'admin' ? 'administrateur' : 'joueur'}`
       );
     } catch (err) {
       console.error('Error toggling admin role:', err);
-      setError(err.message);
+      Alert.alert('Erreur', 'Impossible de modifier le rôle de l\'utilisateur');
     }
   };
 
