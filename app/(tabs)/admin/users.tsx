@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, TextInput } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, TextInput, Alert } from 'react-native';
 import { theme } from '@/constants/theme';
-import { Search, Filter, UserCheck, UserX } from 'lucide-react-native';
+import { Search, Filter, UserCheck, UserX, Shield } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -52,6 +52,40 @@ export default function UsersManagementScreen() {
       await fetchUsers();
     } catch (err) {
       console.error('Error toggling user status:', err);
+      setError(err.message);
+    }
+  };
+
+  const toggleAdminRole = async (userId: string, currentRole: string) => {
+    try {
+      const newRole = currentRole === 'admin' ? 'joueur' : 'admin';
+      
+      // Show confirmation dialog
+      Alert.alert(
+        'Confirmation',
+        `Êtes-vous sûr de vouloir ${newRole === 'admin' ? 'promouvoir' : 'rétrograder'} cet utilisateur ?`,
+        [
+          {
+            text: 'Annuler',
+            style: 'cancel',
+          },
+          {
+            text: 'Confirmer',
+            onPress: async () => {
+              const { error } = await supabase
+                .from('users')
+                .update({ role: newRole })
+                .eq('id', userId);
+
+              if (error) throw error;
+
+              await fetchUsers();
+            },
+          },
+        ],
+      );
+    } catch (err) {
+      console.error('Error toggling admin role:', err);
       setError(err.message);
     }
   };
@@ -125,6 +159,15 @@ export default function UsersManagementScreen() {
               <View>
                 <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
                 <Text style={styles.userEmail}>{user.email}</Text>
+                <View style={styles.roleContainer}>
+                  <Shield size={16} color={user.role === 'admin' ? theme.colors.primary : theme.colors.gray[500]} />
+                  <Text style={[
+                    styles.roleText,
+                    user.role === 'admin' && styles.adminRoleText
+                  ]}>
+                    {user.role === 'admin' ? 'Administrateur' : 'Joueur'}
+                  </Text>
+                </View>
               </View>
               {user.subscription_status ? (
                 <UserCheck size={20} color={theme.colors.success} />
@@ -144,10 +187,12 @@ export default function UsersManagementScreen() {
             
             <View style={styles.actions}>
               <TouchableOpacity 
-                style={[styles.actionButton, styles.editButton]}
-                onPress={() => {/* TODO: Implement edit */}}
+                style={[styles.actionButton, styles.roleButton]}
+                onPress={() => toggleAdminRole(user.id, user.role)}
               >
-                <Text style={styles.actionButtonText}>Modifier</Text>
+                <Text style={styles.actionButtonText}>
+                  {user.role === 'admin' ? 'Retirer admin' : 'Promouvoir admin'}
+                </Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -243,7 +288,7 @@ const styles = StyleSheet.create({
   userHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: theme.spacing.sm,
   },
   userName: {
@@ -255,6 +300,20 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.regular,
     fontSize: theme.fontSizes.sm,
     color: theme.colors.gray[600],
+  },
+  roleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  roleText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.gray[600],
+    marginLeft: 4,
+  },
+  adminRoleText: {
+    color: theme.colors.primary,
   },
   userDetails: {
     marginBottom: theme.spacing.md,
@@ -285,7 +344,7 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.sm,
     color: theme.colors.background,
   },
-  editButton: {
+  roleButton: {
     backgroundColor: theme.colors.primary,
   },
   activateButton: {
