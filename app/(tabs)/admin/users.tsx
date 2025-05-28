@@ -13,12 +13,13 @@ import {
   Platform
 } from 'react-native';
 import { theme } from '@/constants/theme';
-import { Search, Filter, UserCheck, UserX, Shield, CreditCard as Edit2, X } from 'lucide-react-native';
+import { Search, Filter, UserCheck, UserX, Shield, CreditCard as Edit2, X, Plus } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import * as ImagePicker from 'expo-image-picker';
 import Button from '@/components/Button';
+import bcrypt from 'bcryptjs';
 
 export default function UsersManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,6 +30,17 @@ export default function UsersManagementScreen() {
   const [error, setError] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newUser, setNewUser] = useState({
+    email: '',
+    password: '',
+    first_name: '',
+    last_name: '',
+    phone: '',
+    role: 'joueur',
+    subscription_status: false,
+    profile_image: null
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -163,6 +175,54 @@ export default function UsersManagementScreen() {
     }
   };
 
+  const handleAddUser = async () => {
+    if (!newUser.email || !newUser.password || !newUser.first_name || !newUser.last_name) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Hash the password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newUser.password, salt);
+
+      // Create user
+      const { data, error: createError } = await supabase
+        .from('users')
+        .insert({
+          ...newUser,
+          password: hashedPassword,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      Alert.alert('Succès', 'Le membre a été ajouté avec succès');
+      setShowAddModal(false);
+      setNewUser({
+        email: '',
+        password: '',
+        first_name: '',
+        last_name: '',
+        phone: '',
+        role: 'joueur',
+        subscription_status: false,
+        profile_image: null
+      });
+      await fetchUsers();
+    } catch (err) {
+      console.error('Error adding user:', err);
+      Alert.alert('Erreur', 'Impossible d\'ajouter le membre');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderProfileImage = (user) => {
     if (user.profile_image) {
       return (
@@ -294,6 +354,104 @@ export default function UsersManagementScreen() {
     );
   };
 
+  const AddUserModal = () => (
+    <Modal
+      visible={showAddModal}
+      animationType="slide"
+      transparent={true}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Ajouter un membre</Text>
+            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+              <X size={24} color={theme.colors.gray[600]} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email *</Text>
+              <TextInput
+                style={styles.input}
+                value={newUser.email}
+                onChangeText={(text) => setNewUser(prev => ({ ...prev, email: text }))}
+                placeholder="Email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Mot de passe *</Text>
+              <TextInput
+                style={styles.input}
+                value={newUser.password}
+                onChangeText={(text) => setNewUser(prev => ({ ...prev, password: text }))}
+                placeholder="Mot de passe"
+                secureTextEntry
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Prénom *</Text>
+              <TextInput
+                style={styles.input}
+                value={newUser.first_name}
+                onChangeText={(text) => setNewUser(prev => ({ ...prev, first_name: text }))}
+                placeholder="Prénom"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nom *</Text>
+              <TextInput
+                style={styles.input}
+                value={newUser.last_name}
+                onChangeText={(text) => setNewUser(prev => ({ ...prev, last_name: text }))}
+                placeholder="Nom"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Téléphone</Text>
+              <TextInput
+                style={styles.input}
+                value={newUser.phone}
+                onChangeText={(text) => setNewUser(prev => ({ ...prev, phone: text }))}
+                placeholder="Téléphone"
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Cotisation à jour</Text>
+              <Switch
+                value={newUser.subscription_status}
+                onValueChange={(value) => setNewUser(prev => ({ ...prev, subscription_status: value }))}
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Button
+              title="Annuler"
+              onPress={() => setShowAddModal(false)}
+              variant="outline"
+              style={styles.modalButton}
+            />
+            <Button
+              title="Ajouter"
+              onPress={handleAddUser}
+              style={styles.modalButton}
+              disabled={loading}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -327,6 +485,12 @@ export default function UsersManagementScreen() {
           onPress={() => setFilterActive(!filterActive)}
         >
           <Filter size={20} color={theme.colors.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setShowAddModal(true)}
+        >
+          <Plus size={20} color={theme.colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -421,6 +585,8 @@ export default function UsersManagementScreen() {
           onClose={() => setEditingUser(null)}
         />
       )}
+
+      <AddUserModal />
     </View>
   );
 }
@@ -458,6 +624,10 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     padding: theme.spacing.sm,
+  },
+  addButton: {
+    padding: theme.spacing.sm,
+    marginLeft: theme.spacing.sm,
   },
   filterSection: {
     backgroundColor: theme.colors.background,

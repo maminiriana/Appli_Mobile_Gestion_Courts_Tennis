@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, TextInput } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  ScrollView, 
+  TouchableOpacity, 
+  Switch, 
+  TextInput,
+  Alert,
+  Modal,
+  Platform
+} from 'react-native';
 import { theme } from '@/constants/theme';
-import { Search, Filter, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, CircleOff } from 'lucide-react-native';
+import { Search, Filter, Plus, X, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, CircleOff } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import Button from '@/components/Button';
 
 export default function CourtsManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -10,6 +22,16 @@ export default function CourtsManagementScreen() {
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newCourt, setNewCourt] = useState({
+    name: '',
+    description: '',
+    surface: '',
+    indoor: false,
+    is_active: true,
+    features: [],
+    image_url: ''
+  });
 
   useEffect(() => {
     fetchCourts();
@@ -55,11 +77,147 @@ export default function CourtsManagementScreen() {
     console.log('Set maintenance:', courtId);
   };
 
+  const handleAddCourt = async () => {
+    if (!newCourt.name || !newCourt.surface) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { data, error: createError } = await supabase
+        .from('courts')
+        .insert({
+          ...newCourt,
+          features: JSON.stringify(newCourt.features),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      Alert.alert('Succès', 'Le court a été ajouté avec succès');
+      setShowAddModal(false);
+      setNewCourt({
+        name: '',
+        description: '',
+        surface: '',
+        indoor: false,
+        is_active: true,
+        features: [],
+        image_url: ''
+      });
+      await fetchCourts();
+    } catch (err) {
+      console.error('Error adding court:', err);
+      Alert.alert('Erreur', 'Impossible d\'ajouter le court');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredCourts = courts.filter(court => 
     (court.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     court.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     court.surface?.toLowerCase().includes(searchQuery.toLowerCase())) &&
     (!showInactiveOnly || !court.is_active)
+  );
+
+  const AddCourtModal = () => (
+    <Modal
+      visible={showAddModal}
+      animationType="slide"
+      transparent={true}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Ajouter un court</Text>
+            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+              <X size={24} color={theme.colors.gray[600]} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nom *</Text>
+              <TextInput
+                style={styles.input}
+                value={newCourt.name}
+                onChangeText={(text) => setNewCourt(prev => ({ ...prev, name: text }))}
+                placeholder="Nom du court"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Description</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={newCourt.description}
+                onChangeText={(text) => setNewCourt(prev => ({ ...prev, description: text }))}
+                placeholder="Description du court"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Surface *</Text>
+              <TextInput
+                style={styles.input}
+                value={newCourt.surface}
+                onChangeText={(text) => setNewCourt(prev => ({ ...prev, surface: text }))}
+                placeholder="Type de surface"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>URL de l'image</Text>
+              <TextInput
+                style={styles.input}
+                value={newCourt.image_url}
+                onChangeText={(text) => setNewCourt(prev => ({ ...prev, image_url: text }))}
+                placeholder="URL de l'image"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Court intérieur</Text>
+              <Switch
+                value={newCourt.indoor}
+                onValueChange={(value) => setNewCourt(prev => ({ ...prev, indoor: value }))}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Court actif</Text>
+              <Switch
+                value={newCourt.is_active}
+                onValueChange={(value) => setNewCourt(prev => ({ ...prev, is_active: value }))}
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Button
+              title="Annuler"
+              onPress={() => setShowAddModal(false)}
+              variant="outline"
+              style={styles.modalButton}
+            />
+            <Button
+              title="Ajouter"
+              onPress={handleAddCourt}
+              style={styles.modalButton}
+              disabled={loading}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 
   if (loading) {
@@ -90,14 +248,12 @@ export default function CourtsManagementScreen() {
             onChangeText={setSearchQuery}
           />
         </View>
-        <View style={styles.filterOption}>
-          <Text style={styles.filterText}>Courts inactifs</Text>
-          <Switch
-            value={showInactiveOnly}
-            onValueChange={setShowInactiveOnly}
-            trackColor={{ false: theme.colors.gray[300], true: theme.colors.primary }}
-          />
-        </View>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setShowAddModal(true)}
+        >
+          <Plus size={20} color={theme.colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content}>
@@ -157,6 +313,8 @@ export default function CourtsManagementScreen() {
           </View>
         ))}
       </ScrollView>
+
+      <AddCourtModal />
     </View>
   );
 }
@@ -302,4 +460,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: theme.spacing.xl,
   },
+  addButton: {
+    padding: theme.spacing.sm,
+    marginLeft: theme.spacing.sm,
+  }
 });
