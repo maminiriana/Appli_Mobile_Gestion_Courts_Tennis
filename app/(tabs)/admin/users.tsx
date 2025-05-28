@@ -1,48 +1,89 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, TextInput } from 'react-native';
 import { theme } from '@/constants/theme';
 import { Search, Filter, UserCheck, UserX } from 'lucide-react-native';
-import { TextInput } from 'react-native';
-
-// Mock data for development
-const mockUsers = [
-  {
-    id: '1',
-    firstName: 'Jean',
-    lastName: 'Dupont',
-    email: 'jean.dupont@email.com',
-    phone: '06 12 34 56 78',
-    subscriptionStatus: true,
-    lastSubscriptionDate: '2024-01-15',
-  },
-  {
-    id: '2',
-    firstName: 'Marie',
-    lastName: 'Martin',
-    email: 'marie.martin@email.com',
-    phone: '06 23 45 67 89',
-    subscriptionStatus: false,
-    lastSubscriptionDate: '2023-12-31',
-  },
-];
+import { supabase } from '@/lib/supabase';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 export default function UsersManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterActive, setFilterActive] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const filteredUsers = mockUsers.filter(user => {
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('last_name');
+
+      if (error) throw error;
+
+      setUsers(data);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          subscription_status: !currentStatus,
+          last_subscription_date: !currentStatus ? new Date().toISOString() : null
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      await fetchUsers();
+    } catch (err) {
+      console.error('Error toggling user status:', err);
+      setError(err.message);
+    }
+  };
+
+  const filteredUsers = users.filter(user => {
     const matchesSearch = 
-      user.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
+      user.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase());
     
     if (showActiveOnly) {
-      return matchesSearch && user.subscriptionStatus;
+      return matchesSearch && user.subscription_status;
     }
     
     return matchesSearch;
   });
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Chargement des utilisateurs...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Erreur: {error}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -82,10 +123,10 @@ export default function UsersManagementScreen() {
           <View key={user.id} style={styles.userCard}>
             <View style={styles.userHeader}>
               <View>
-                <Text style={styles.userName}>{user.firstName} {user.lastName}</Text>
+                <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
                 <Text style={styles.userEmail}>{user.email}</Text>
               </View>
-              {user.subscriptionStatus ? (
+              {user.subscription_status ? (
                 <UserCheck size={20} color={theme.colors.success} />
               ) : (
                 <UserX size={20} color={theme.colors.error} />
@@ -93,9 +134,11 @@ export default function UsersManagementScreen() {
             </View>
             
             <View style={styles.userDetails}>
-              <Text style={styles.userPhone}>{user.phone}</Text>
+              <Text style={styles.userPhone}>{user.phone || 'Aucun numéro'}</Text>
               <Text style={styles.subscriptionDate}>
-                Dernière cotisation: {new Date(user.lastSubscriptionDate).toLocaleDateString()}
+                Dernière cotisation: {user.last_subscription_date 
+                  ? format(new Date(user.last_subscription_date), 'dd/MM/yyyy')
+                  : 'Jamais'}
               </Text>
             </View>
             
@@ -108,11 +151,14 @@ export default function UsersManagementScreen() {
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.actionButton, user.subscriptionStatus ? styles.deactivateButton : styles.activateButton]}
-                onPress={() => {/* TODO: Implement status toggle */}}
+                style={[
+                  styles.actionButton, 
+                  user.subscription_status ? styles.deactivateButton : styles.activateButton
+                ]}
+                onPress={() => toggleUserStatus(user.id, user.subscription_status)}
               >
                 <Text style={styles.actionButtonText}>
-                  {user.subscriptionStatus ? 'Désactiver' : 'Activer'}
+                  {user.subscription_status ? 'Désactiver' : 'Activer'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -268,5 +314,19 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: theme.colors.background,
     fontFamily: theme.fonts.medium,
+  },
+  loadingText: {
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.lg,
+    color: theme.colors.gray[600],
+    textAlign: 'center',
+    marginTop: theme.spacing.xl,
+  },
+  errorText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.lg,
+    color: theme.colors.error,
+    textAlign: 'center',
+    marginTop: theme.spacing.xl,
   },
 });
