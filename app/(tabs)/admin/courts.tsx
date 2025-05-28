@@ -1,27 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, TextInput } from 'react-native';
 import { theme } from '@/constants/theme';
-import { courts } from '@/constants/mockData';
-import { Search, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, CircleOff } from 'lucide-react-native';
+import { Search, Filter, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, CircleOff } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
 
 export default function CourtsManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showInactiveOnly, setShowInactiveOnly] = useState(false);
+  const [courts, setCourts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const filteredCourts = courts.filter(court => 
-    court.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    court.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    fetchCourts();
+  }, []);
 
-  const toggleCourtStatus = (courtId: string) => {
-    // TODO: Implement court status toggle
-    console.log('Toggle court status:', courtId);
+  const fetchCourts = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('courts')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+
+      setCourts(data);
+    } catch (err) {
+      console.error('Error fetching courts:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const setMaintenance = (courtId: string) => {
-    // TODO: Implement maintenance mode
+  const toggleCourtStatus = async (courtId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('courts')
+        .update({ is_active: !currentStatus })
+        .eq('id', courtId);
+
+      if (error) throw error;
+
+      await fetchCourts();
+    } catch (err) {
+      console.error('Error toggling court status:', err);
+      setError(err.message);
+    }
+  };
+
+  const setMaintenance = async (courtId: string) => {
+    // Implement maintenance logic here
     console.log('Set maintenance:', courtId);
   };
+
+  const filteredCourts = courts.filter(court => 
+    (court.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    court.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    court.surface?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+    (!showInactiveOnly || !court.is_active)
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Chargement des courts...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Erreur: {error}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -53,7 +108,7 @@ export default function CourtsManagementScreen() {
                 <Text style={styles.courtName}>{court.name}</Text>
                 <Text style={styles.courtDescription}>{court.description}</Text>
               </View>
-              {court.isActive ? (
+              {court.is_active ? (
                 <CheckCircle2 size={20} color={theme.colors.success} />
               ) : (
                 <CircleOff size={20} color={theme.colors.error} />
@@ -69,16 +124,10 @@ export default function CourtsManagementScreen() {
                 <Text style={styles.detailLabel}>Type:</Text>
                 <Text style={styles.detailValue}>{court.indoor ? 'Intérieur' : 'Extérieur'}</Text>
               </View>
-              {court.maintenanceReason && (
-                <View style={styles.maintenanceAlert}>
-                  <AlertTriangle size={16} color={theme.colors.secondary} />
-                  <Text style={styles.maintenanceText}>{court.maintenanceReason}</Text>
-                </View>
-              )}
             </View>
 
             <View style={styles.features}>
-              {court.features.map((feature, index) => (
+              {court.features && Array.isArray(court.features) && court.features.map((feature, index) => (
                 <View key={index} style={styles.featureTag}>
                   <Text style={styles.featureText}>{feature}</Text>
                 </View>
@@ -96,12 +145,12 @@ export default function CourtsManagementScreen() {
               <TouchableOpacity
                 style={[
                   styles.actionButton,
-                  court.isActive ? styles.deactivateButton : styles.activateButton
+                  court.is_active ? styles.deactivateButton : styles.activateButton
                 ]}
-                onPress={() => toggleCourtStatus(court.id)}
+                onPress={() => toggleCourtStatus(court.id, court.is_active)}
               >
                 <Text style={styles.actionButtonText}>
-                  {court.isActive ? 'Désactiver' : 'Activer'}
+                  {court.is_active ? 'Désactiver' : 'Activer'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -198,20 +247,6 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.md,
     color: theme.colors.text,
   },
-  maintenanceAlert: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: `${theme.colors.secondary}15`,
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    marginTop: theme.spacing.sm,
-  },
-  maintenanceText: {
-    fontFamily: theme.fonts.medium,
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.secondary,
-    marginLeft: theme.spacing.xs,
-  },
   features: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -252,5 +287,19 @@ const styles = StyleSheet.create({
   },
   deactivateButton: {
     backgroundColor: theme.colors.error,
+  },
+  loadingText: {
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.lg,
+    color: theme.colors.gray[600],
+    textAlign: 'center',
+    marginTop: theme.spacing.xl,
+  },
+  errorText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.lg,
+    color: theme.colors.error,
+    textAlign: 'center',
+    marginTop: theme.spacing.xl,
   },
 });
