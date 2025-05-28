@@ -51,7 +51,6 @@ export default function TabLayout() {
       <Tabs.Screen
         name="edit-profile"
         options={{
-          href: null, // This prevents the route from being accessible via direct URL
           tabBarButton: () => null, // This hides the tab button completely
         }}
       />
