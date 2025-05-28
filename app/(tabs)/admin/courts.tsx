@@ -12,7 +12,7 @@ import {
   Platform
 } from 'react-native';
 import { theme } from '@/constants/theme';
-import { Search, Filter, Plus, X, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, CircleOff } from 'lucide-react-native';
+import { Search, Filter, Plus, X, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, CircleOff, Plus as PlusCircle, Minus } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import Button from '@/components/Button';
 
@@ -32,6 +32,7 @@ export default function CourtsManagementScreen() {
     features: [],
     image_url: ''
   });
+  const [newFeature, setNewFeature] = useState('');
 
   useEffect(() => {
     fetchCourts();
@@ -119,6 +120,23 @@ export default function CourtsManagementScreen() {
     }
   };
 
+  const handleAddFeature = () => {
+    if (!newFeature.trim()) return;
+    
+    setNewCourt(prev => ({
+      ...prev,
+      features: [...prev.features, newFeature.trim()]
+    }));
+    setNewFeature('');
+  };
+
+  const handleRemoveFeature = (index: number) => {
+    setNewCourt(prev => ({
+      ...prev,
+      features: prev.features.filter((_, i) => i !== index)
+    }));
+  };
+
   const filteredCourts = courts.filter(court => 
     (court.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     court.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -136,10 +154,7 @@ export default function CourtsManagementScreen() {
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Ajouter un court</Text>
-            <TouchableOpacity 
-              onPress={() => setShowAddModal(false)}
-              style={styles.closeButton}
-            >
+            <TouchableOpacity onPress={() => setShowAddModal(false)}>
               <X size={24} color={theme.colors.gray[600]} />
             </TouchableOpacity>
           </View>
@@ -186,6 +201,38 @@ export default function CourtsManagementScreen() {
                 onChangeText={(text) => setNewCourt(prev => ({ ...prev, image_url: text }))}
                 placeholder="URL de l'image"
               />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Caractéristiques</Text>
+              <View style={styles.featureInputContainer}>
+                <TextInput
+                  style={[styles.input, styles.featureInput]}
+                  value={newFeature}
+                  onChangeText={setNewFeature}
+                  placeholder="Ajouter une caractéristique"
+                />
+                <TouchableOpacity 
+                  style={styles.addFeatureButton}
+                  onPress={handleAddFeature}
+                >
+                  <PlusCircle size={24} color={theme.colors.primary} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.featuresList}>
+                {newCourt.features.map((feature, index) => (
+                  <View key={index} style={styles.featureItem}>
+                    <Text style={styles.featureText}>{feature}</Text>
+                    <TouchableOpacity
+                      onPress={() => handleRemoveFeature(index)}
+                      style={styles.removeFeatureButton}
+                    >
+                      <Minus size={16} color={theme.colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
             </View>
 
             <View style={styles.switchGroup}>
@@ -532,5 +579,31 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     textAlign: 'center',
     marginTop: theme.spacing.xl,
+  },
+  featureInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  featureInput: {
+    flex: 1,
+  },
+  addFeatureButton: {
+    padding: theme.spacing.xs,
+  },
+  featuresList: {
+    gap: theme.spacing.xs,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.gray[100],
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+  },
+  removeFeatureButton: {
+    padding: theme.spacing.xs,
   },
 });
