@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  ScrollView, 
+  TouchableOpacity, 
+  TextInput,
+  Modal,
+  Platform,
+  Alert
+} from 'react-native';
 import { theme } from '@/constants/theme';
-import { Search, Filter, Calendar, Clock, MapPin, User } from 'lucide-react-native';
+import { Search, Filter, Plus, X, Calendar, Clock, MapPin, User } from 'lucide-react-native';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import DatePicker from '@/components/DatePicker';
 import { supabase } from '@/lib/supabase';
+import Button from '@/components/Button';
 
 export default function BookingsManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -13,8 +24,17 @@ export default function BookingsManagementScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [courts, setCourts] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newBooking, setNewBooking] = useState({
+    user_id: '',
+    court_id: '',
+    start_time: new Date().toISOString(),
+    end_time: new Date(Date.now() + 3600000).toISOString(),
+    status: 'pending'
+  });
 
   useEffect(() => {
     fetchData();
@@ -24,7 +44,7 @@ export default function BookingsManagementScreen() {
     try {
       setLoading(true);
       
-      // Fetch courts first
+      // Fetch courts
       const { data: courtsData, error: courtsError } = await supabase
         .from('courts')
         .select('*');
@@ -32,7 +52,15 @@ export default function BookingsManagementScreen() {
       if (courtsError) throw courtsError;
       setCourts(courtsData);
 
-      // Then fetch bookings with user information
+      // Fetch users
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('*');
+
+      if (usersError) throw usersError;
+      setUsers(usersData);
+
+      // Fetch bookings
       const { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
         .select(`
@@ -56,7 +84,46 @@ export default function BookingsManagementScreen() {
     }
   };
 
-  const handleCancelBooking = async (bookingId: string) => {
+  const handleAddBooking = async () => {
+    if (!newBooking.user_id || !newBooking.court_id || !newBooking.start_time || !newBooking.end_time) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { data, error: createError } = await supabase
+        .from('bookings')
+        .insert({
+          ...newBooking,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      Alert.alert('Succès', 'La réservation a été ajoutée avec succès');
+      setShowAddModal(false);
+      setNewBooking({
+        user_id: '',
+        court_id: '',
+        start_time: new Date().toISOString(),
+        end_time: new Date(Date.now() + 3600000).toISOString(),
+        status: 'pending'
+      });
+      await fetchData();
+    } catch (err) {
+      console.error('Error adding booking:', err);
+      Alert.alert('Erreur', 'Impossible d\'ajouter la réservation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelBooking = async (bookingId) => {
     try {
       const { error } = await supabase
         .from('bookings')
@@ -71,7 +138,7 @@ export default function BookingsManagementScreen() {
     }
   };
 
-  const handleConfirmBooking = async (bookingId: string) => {
+  const handleConfirmBooking = async (bookingId) => {
     try {
       const { error } = await supabase
         .from('bookings')
@@ -86,7 +153,7 @@ export default function BookingsManagementScreen() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status) => {
     switch (status) {
       case 'confirmed':
         return theme.colors.success;
@@ -99,7 +166,7 @@ export default function BookingsManagementScreen() {
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status) => {
     switch (status) {
       case 'confirmed':
         return 'Confirmée';
@@ -113,6 +180,96 @@ export default function BookingsManagementScreen() {
         return status;
     }
   };
+
+  const AddBookingModal = () => (
+    <Modal
+      visible={showAddModal}
+      animationType="slide"
+      transparent={true}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Ajouter une réservation</Text>
+            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+              <X size={24} color={theme.colors.gray[600]} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Membre *</Text>
+              <TextInput
+                style={styles.input}
+                value={users.find(u => u.id === newBooking.user_id)?.email || ''}
+                onChangeText={(text) => {
+                  const user = users.find(u => u.email.toLowerCase().includes(text.toLowerCase()));
+                  if (user) {
+                    setNewBooking(prev => ({ ...prev, user_id: user.id }));
+                  }
+                }}
+                placeholder="Email du membre"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Court *</Text>
+              <TextInput
+                style={styles.input}
+                value={courts.find(c => c.id === newBooking.court_id)?.name || ''}
+                onChangeText={(text) => {
+                  const court = courts.find(c => c.name.toLowerCase().includes(text.toLowerCase()));
+                  if (court) {
+                    setNewBooking(prev => ({ ...prev, court_id: court.id }));
+                  }
+                }}
+                placeholder="Nom du court"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Date et heure de début *</Text>
+              <TextInput
+                style={styles.input}
+                value={format(new Date(newBooking.start_time), 'dd/MM/yyyy HH:mm')}
+                onChangeText={(text) => {
+                  // Add date picker logic here
+                }}
+                placeholder="Date et heure de début"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Date et heure de fin *</Text>
+              <TextInput
+                style={styles.input}
+                value={format(new Date(newBooking.end_time), 'dd/MM/yyyy HH:mm')}
+                onChangeText={(text) => {
+                  // Add date picker logic here
+                }}
+                placeholder="Date et heure de fin"
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Button
+              title="Annuler"
+              onPress={() => setShowAddModal(false)}
+              variant="outline"
+              style={styles.modalButton}
+            />
+            <Button
+              title="Ajouter"
+              onPress={handleAddBooking}
+              style={styles.modalButton}
+              disabled={loading}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
   if (loading) {
     return (
@@ -153,6 +310,12 @@ export default function BookingsManagementScreen() {
             onPress={() => setShowFilters(!showFilters)}
           >
             <Filter size={20} color={theme.colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setShowAddModal(true)}
+          >
+            <Plus size={20} color={theme.colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -243,6 +406,8 @@ export default function BookingsManagementScreen() {
           );
         })}
       </ScrollView>
+
+      <AddBookingModal />
     </View>
   );
 }
@@ -274,6 +439,10 @@ const styles = StyleSheet.create({
   filterButton: {
     marginLeft: theme.spacing.sm,
     padding: theme.spacing.xs,
+  },
+  addButton: {
+    padding: theme.spacing.sm,
+    marginLeft: theme.spacing.sm,
   },
   filterSection: {
     padding: theme.spacing.md,
@@ -373,5 +542,56 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     textAlign: 'center',
     marginTop: theme.spacing.xl,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+  },
+  modalContent: {
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.lg,
+    width: '100%',
+    maxHeight: '80%',
+    padding: theme.spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  modalTitle: {
+    fontFamily: theme.fonts.semiBold,
+    fontSize: theme.fontSizes.xl,
+    color: theme.colors.text,
+  },
+  inputGroup: {
+    marginBottom: theme.spacing.md,
+  },
+  label: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: theme.colors.gray[300],
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.md,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.lg,
+  },
+  modalButton: {
+    minWidth: 100,
   },
 });
