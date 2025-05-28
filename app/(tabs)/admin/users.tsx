@@ -1,10 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, TextInput, Alert } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  ScrollView, 
+  TouchableOpacity, 
+  Switch, 
+  TextInput,
+  Alert,
+  Image,
+  Modal,
+  Platform
+} from 'react-native';
 import { theme } from '@/constants/theme';
-import { Search, Filter, UserCheck, UserX, Shield } from 'lucide-react-native';
+import { Search, Filter, UserCheck, UserX, Shield, Edit2, X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import * as ImagePicker from 'expo-image-picker';
+import Button from '@/components/Button';
 
 export default function UsersManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -13,6 +27,8 @@ export default function UsersManagementScreen() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -37,7 +53,61 @@ export default function UsersManagementScreen() {
     }
   };
 
-  const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
+  const handleImageUpload = async (userId) => {
+    if (isUploading) return;
+
+    try {
+      setIsUploading(true);
+
+      if (Platform.OS === 'web') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        
+        const file = await new Promise((resolve, reject) => {
+          input.onchange = (e) => {
+            const file = e.target.files?.[0];
+            if (file) resolve(file);
+            else reject(new Error('No file selected'));
+          };
+          input.click();
+        });
+
+        const base64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(file);
+        });
+
+        await updateUserProfile(userId, { profile_image: base64 });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          throw new Error('Permission denied');
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+          base64: true,
+        });
+
+        if (!result.canceled && result.assets[0].base64) {
+          const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+          await updateUserProfile(userId, { profile_image: base64Image });
+        }
+      }
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      Alert.alert('Error', 'Failed to upload image');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const toggleUserStatus = async (userId, currentStatus) => {
     try {
       const { error } = await supabase
         .from('users')
@@ -56,19 +126,15 @@ export default function UsersManagementScreen() {
     }
   };
 
-  const toggleAdminRole = async (userId: string, currentRole: string) => {
+  const toggleAdminRole = async (userId, currentRole) => {
     try {
       const newRole = currentRole === 'admin' ? 'joueur' : 'admin';
       
-      // Show confirmation dialog
       Alert.alert(
         'Confirmation',
         `Êtes-vous sûr de vouloir ${newRole === 'admin' ? 'promouvoir' : 'rétrograder'} cet utilisateur ?`,
         [
-          {
-            text: 'Annuler',
-            style: 'cancel',
-          },
+          { text: 'Annuler', style: 'cancel' },
           {
             text: 'Confirmer',
             onPress: async () => {
@@ -78,7 +144,6 @@ export default function UsersManagementScreen() {
                 .eq('id', userId);
 
               if (error) throw error;
-
               await fetchUsers();
             },
           },
@@ -88,6 +153,40 @@ export default function UsersManagementScreen() {
       console.error('Error toggling admin role:', err);
       setError(err.message);
     }
+  };
+
+  const updateUserProfile = async (userId, updates) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', userId);
+
+      if (error) throw error;
+      await fetchUsers();
+    } catch (err) {
+      console.error('Error updating user:', err);
+      Alert.alert('Error', 'Failed to update user profile');
+    }
+  };
+
+  const renderProfileImage = (user) => {
+    if (user.profile_image) {
+      return (
+        <Image
+          source={{ uri: user.profile_image }}
+          style={styles.profileImage}
+        />
+      );
+    }
+
+    return (
+      <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
+        <Text style={styles.profileImageText}>
+          {user.first_name?.charAt(0) || user.email.charAt(0)}
+        </Text>
+      </View>
+    );
   };
 
   const filteredUsers = users.filter(user => {
@@ -102,6 +201,105 @@ export default function UsersManagementScreen() {
     
     return matchesSearch;
   });
+
+  const EditUserModal = ({ user, visible, onClose }) => {
+    const [firstName, setFirstName] = useState(user?.first_name || '');
+    const [lastName, setLastName] = useState(user?.last_name || '');
+    const [phone, setPhone] = useState(user?.phone || '');
+    const [email, setEmail] = useState(user?.email || '');
+
+    const handleSave = async () => {
+      try {
+        await updateUserProfile(user.id, {
+          first_name: firstName,
+          last_name: lastName,
+          phone,
+          email
+        });
+        onClose();
+      } catch (err) {
+        Alert.alert('Error', 'Failed to update user information');
+      }
+    };
+
+    return (
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Modifier le profil</Text>
+              <TouchableOpacity onPress={onClose}>
+                <X size={24} color={theme.colors.gray[600]} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Prénom</Text>
+                <TextInput
+                  style={styles.input}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="Prénom"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nom</Text>
+                <TextInput
+                  style={styles.input}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Nom"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Téléphone</Text>
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Téléphone"
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Email"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <Button
+                title="Annuler"
+                onPress={onClose}
+                variant="outline"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Enregistrer"
+                onPress={handleSave}
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
 
   if (loading) {
     return (
@@ -156,7 +354,17 @@ export default function UsersManagementScreen() {
         {filteredUsers.map(user => (
           <View key={user.id} style={styles.userCard}>
             <View style={styles.userHeader}>
-              <View>
+              <TouchableOpacity
+                style={styles.profileImageContainer}
+                onPress={() => handleImageUpload(user.id)}
+              >
+                {renderProfileImage(user)}
+                <View style={styles.editOverlay}>
+                  <Edit2 size={16} color={theme.colors.background} />
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.userInfo}>
                 <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
                 <Text style={styles.userEmail}>{user.email}</Text>
                 <View style={styles.roleContainer}>
@@ -169,11 +377,13 @@ export default function UsersManagementScreen() {
                   </Text>
                 </View>
               </View>
-              {user.subscription_status ? (
-                <UserCheck size={20} color={theme.colors.success} />
-              ) : (
-                <UserX size={20} color={theme.colors.error} />
-              )}
+
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => setEditingUser(user)}
+              >
+                <Edit2 size={20} color={theme.colors.primary} />
+              </TouchableOpacity>
             </View>
             
             <View style={styles.userDetails}>
@@ -211,12 +421,13 @@ export default function UsersManagementScreen() {
         ))}
       </ScrollView>
 
-      <TouchableOpacity 
-        style={styles.fab}
-        onPress={() => {/* TODO: Implement new user creation */}}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          visible={!!editingUser}
+          onClose={() => setEditingUser(null)}
+        />
+      )}
     </View>
   );
 }
@@ -287,9 +498,42 @@ const styles = StyleSheet.create({
   },
   userHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing.sm,
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  profileImageContainer: {
+    position: 'relative',
+    marginRight: theme.spacing.md,
+  },
+  profileImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  profileImagePlaceholder: {
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImageText: {
+    color: theme.colors.background,
+    fontSize: 24,
+    fontFamily: theme.fonts.bold,
+  },
+  editOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  userInfo: {
+    flex: 1,
   },
   userName: {
     fontFamily: theme.fonts.semiBold,
@@ -314,6 +558,9 @@ const styles = StyleSheet.create({
   },
   adminRoleText: {
     color: theme.colors.primary,
+  },
+  editButton: {
+    padding: theme.spacing.sm,
   },
   userDetails: {
     marginBottom: theme.spacing.md,
@@ -353,26 +600,55 @@ const styles = StyleSheet.create({
   deactivateButton: {
     backgroundColor: theme.colors.error,
   },
-  fab: {
-    position: 'absolute',
-    right: theme.spacing.lg,
-    bottom: theme.spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: theme.colors.primary,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: theme.colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    padding: theme.spacing.md,
   },
-  fabText: {
-    fontSize: 24,
-    color: theme.colors.background,
+  modalContent: {
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  modalTitle: {
+    fontFamily: theme.fonts.semiBold,
+    fontSize: theme.fontSizes.xl,
+    color: theme.colors.text,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+  },
+  modalButton: {
+    flex: 1,
+  },
+  inputGroup: {
+    marginBottom: theme.spacing.md,
+  },
+  label: {
     fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.gray[700],
+    marginBottom: theme.spacing.xs,
+  },
+  input: {
+    backgroundColor: theme.colors.gray[100],
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.text,
   },
   loadingText: {
     fontFamily: theme.fonts.regular,
