@@ -134,16 +134,7 @@ export default function LoginScreen() {
             disabled={isLoading}
           />
 
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>Pas encore de compte ?</Text>
-            <Button
-              title="S'inscrire"
-              onPress={() => router.push('/(auth)/register')}
-              variant="text"
-              style={styles.registerButton}
-              disabled={isLoading}
-            />
-          </View>
+          
         </View>
       </View>
     </SafeAreaView>
