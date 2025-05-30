@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, ScrollView, SafeAreaView, TextInput, Image } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, SafeAreaView, TextInput } from 'react-native';
 import { theme } from '../../constants/theme';
 import { courts } from '../../constants/mockData';
 import CourtItem from '../../components/CourtItem';
@@ -14,15 +14,20 @@ import type { Court } from '../../types';
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
-
-  // If user is not logged in, redirect to login page
-  if (!user) {
-    router.replace('/(auth)/login');
-    return null;
-  }
-
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedDate, setSelectedDate] = React.useState(new Date());
+
+  // Move navigation logic to useEffect
+  React.useEffect(() => {
+    if (!user) {
+      router.replace('/(auth)/login');
+    }
+  }, [user, router]);
+
+  // Return null while checking authentication to prevent flash of content
+  if (!user) {
+    return null;
+  }
 
   const filteredCourts = courts.filter((court: Court) => 
     court.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
