@@ -1,19 +1,20 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import { Booking } from '@/types';
+import { Booking, Court } from '@/types';
 import { theme } from '@/constants/theme';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Calendar, Clock, CircleCheck as CheckCircle, CircleAlert as AlertCircle, Circle as XCircle, Clock4 } from 'lucide-react-native';
-import { courts } from '@/constants/mockData';
 
 interface BookingItemProps {
   booking: Booking;
+  court?: Court;
   onPress: (booking: Booking) => void;
 }
 
-export default function BookingItem({ booking, onPress }: BookingItemProps) {
-  const court = courts.find(c => c.id === booking.courtId);
+export default function BookingItem({ booking, court, onPress }: BookingItemProps) {
+  const startTime = new Date(booking.start_time);
+  const endTime = new Date(booking.end_time);
 
   const getStatusIcon = () => {
     switch (booking.status) {
@@ -60,10 +61,12 @@ export default function BookingItem({ booking, onPress }: BookingItemProps) {
     }
   };
 
+  if (!court) return null;
+
   return (
     <TouchableOpacity style={styles.container} onPress={() => onPress(booking)}>
       <View style={styles.header}>
-        <Text style={styles.courtName}>{court?.name}</Text>
+        <Text style={styles.courtName}>{court.name}</Text>
         <View style={[styles.statusContainer, { backgroundColor: `${getStatusColor()}20` }]}>
           {getStatusIcon()}
           <Text style={[styles.statusText, { color: getStatusColor() }]}>{getStatusText()}</Text>
@@ -74,14 +77,14 @@ export default function BookingItem({ booking, onPress }: BookingItemProps) {
         <View style={styles.detailRow}>
           <Calendar size={16} color={theme.colors.gray[600]} />
           <Text style={styles.detailText}>
-            {format(booking.startTime, 'EEEE d MMMM yyyy', { locale: fr })}
+            {format(startTime, 'EEEE d MMMM yyyy', { locale: fr })}
           </Text>
         </View>
         
         <View style={styles.detailRow}>
           <Clock size={16} color={theme.colors.gray[600]} />
           <Text style={styles.detailText}>
-            {format(booking.startTime, 'HH:mm')} - {format(booking.endTime, 'HH:mm')}
+            {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
           </Text>
         </View>
       </View>

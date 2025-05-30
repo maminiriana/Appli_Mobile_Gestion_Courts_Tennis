@@ -1,32 +1,87 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, SafeAreaView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { theme } from '@/constants/theme';
-import { bookings } from '@/constants/mockData';
 import BookingItem from '@/components/BookingItem';
 import Header from '@/components/Header';
 import { useRouter } from 'expo-router';
-import { Booking } from '@/types';
+import { Booking, Court } from '@/types';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/app/context/AuthContext';
 
 export default function BookingsScreen() {
   const router = useRouter();
+  const { session } = useAuth();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Fetch bookings for the current user
+        const { data: bookingsData, error: bookingsError } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('start_time', { ascending: true });
+
+        if (bookingsError) throw bookingsError;
+
+        // Fetch all courts
+        const { data: courtsData, error: courtsError } = await supabase
+          .from('courts')
+          .select('*');
+
+        if (courtsError) throw courtsError;
+
+        setBookings(bookingsData || []);
+        setCourts(courtsData || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred while fetching data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [session]);
   
   const currentDate = new Date();
   
-  const upcomingBookings = bookings.filter(
-    booking => booking.startTime > currentDate && booking.status !== 'cancelled'
-  );
+  const upcomingBookings = bookings.filter(booking => {
+    const startTime = new Date(booking.start_time);
+    return startTime > currentDate && booking.status !== 'cancelled';
+  });
   
-  const pastBookings = bookings.filter(
-    booking => booking.startTime <= currentDate || booking.status === 'cancelled'
-  );
+  const pastBookings = bookings.filter(booking => {
+    const startTime = new Date(booking.start_time);
+    return startTime <= currentDate || booking.status === 'cancelled';
+  });
 
   const displayedBookings = activeTab === 'upcoming' ? upcomingBookings : pastBookings;
 
   const handleBookingPress = (booking: Booking) => {
-    // In a real app, this would navigate to a booking detail page
-    console.log('Booking pressed:', booking);
+    // Navigate to booking detail page
+    router.push(`/booking/${booking.id}`);
   };
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header title="Mes réservations" />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -59,29 +114,36 @@ export default function BookingsScreen() {
         </Text>
       </View>
       
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {displayedBookings.length > 0 ? (
-          displayedBookings.map(booking => (
-            <BookingItem 
-              key={booking.id} 
-              booking={booking} 
-              onPress={handleBookingPress} 
-            />
-          ))
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              {activeTab === 'upcoming' 
-                ? "Vous n'avez pas de réservations à venir." 
-                : "Vous n'avez pas encore effectué de réservation."
-              }
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      ) : (
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {displayedBookings.length > 0 ? (
+            displayedBookings.map(booking => (
+              <BookingItem 
+                key={booking.id} 
+                booking={booking}
+                court={courts.find(c => c.id === booking.court_id)}
+                onPress={handleBookingPress} 
+              />
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                {activeTab === 'upcoming' 
+                  ? "Vous n'avez pas de réservations à venir." 
+                  : "Vous n'avez pas encore effectué de réservation."
+                }
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -107,7 +169,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     borderTopLeftRadius: 3,
     borderTopRightRadius: 3,
-    transition: 'transform 0.3s',
   },
   tabText: {
     flex: 1,
@@ -135,6 +196,23 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.regular,
     fontSize: theme.fontSizes.md,
     color: theme.colors.gray[600],
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  errorText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.error,
     textAlign: 'center',
   },
 });
