@@ -136,13 +136,6 @@ export default function BookingConfirmationScreen() {
               </Text>
             </View>
           </View>
-          
-          <View style={styles.paymentInfo}>
-            <Text style={styles.paymentTitle}>Paiement sur place</Text>
-            <Text style={styles.paymentText}>
-              Merci de prévoir un paiement par carte bancaire ou en espèces à votre arrivée.
-            </Text>
-          </View>
         </View>
         
         <View style={styles.reminderContainer}>
@@ -286,22 +279,6 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.md,
     color: theme.colors.text,
     marginLeft: theme.spacing.sm,
-  },
-  paymentInfo: {
-    backgroundColor: `${theme.colors.secondary}15`,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-  },
-  paymentTitle: {
-    fontFamily: theme.fonts.semiBold,
-    fontSize: theme.fontSizes.md,
-    color: theme.colors.secondary,
-    marginBottom: 4,
-  },
-  paymentText: {
-    fontFamily: theme.fonts.regular,
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.text,
   },
   reminderContainer: {
     backgroundColor: theme.colors.background,
