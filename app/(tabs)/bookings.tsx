@@ -4,54 +4,58 @@ import { theme } from '@/constants/theme';
 import BookingItem from '@/components/BookingItem';
 import Header from '@/components/Header';
 import { useRouter } from 'expo-router';
-import { Booking, Court } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/app/context/AuthContext';
 
 export default function BookingsScreen() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [courts, setCourts] = useState<Court[]>([]);
+  const [bookings, setBookings] = useState([]);
+  const [courts, setCourts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    if (!session?.user) return;
-
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        // Fetch bookings for the current user
-        const { data: bookingsData, error: bookingsError } = await supabase
-          .from('bookings')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('start_time', { ascending: true });
-
-        if (bookingsError) throw bookingsError;
-
-        // Fetch all courts
-        const { data: courtsData, error: courtsError } = await supabase
-          .from('courts')
-          .select('*');
-
-        if (courtsError) throw courtsError;
-
-        setBookings(bookingsData || []);
-        setCourts(courtsData || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred while fetching data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+    if (!user) {
+      router.replace('/(auth)/login');
+      return;
+    }
+    
     fetchData();
-  }, [session]);
+  }, [user]);
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch bookings for the current user
+      const { data: bookingsData, error: bookingsError } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          courts (
+            id,
+            name,
+            surface,
+            indoor,
+            image_url
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('start_time', { ascending: true });
+
+      if (bookingsError) throw bookingsError;
+      setBookings(bookingsData || []);
+
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue lors du chargement des réservations');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const currentDate = new Date();
   
@@ -67,17 +71,17 @@ export default function BookingsScreen() {
 
   const displayedBookings = activeTab === 'upcoming' ? upcomingBookings : pastBookings;
 
-  const handleBookingPress = (booking: Booking) => {
+  const handleBookingPress = (booking) => {
     // Navigate to booking detail page
     router.push(`/booking/${booking.id}`);
   };
 
-  if (error) {
+  if (!user) {
     return (
       <SafeAreaView style={styles.container}>
         <Header title="Mes réservations" />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>Vous devez être connecté pour voir vos réservations</Text>
         </View>
       </SafeAreaView>
     );
@@ -117,6 +121,11 @@ export default function BookingsScreen() {
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Chargement de vos réservations...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : (
         <ScrollView 
@@ -128,8 +137,8 @@ export default function BookingsScreen() {
               <BookingItem 
                 key={booking.id} 
                 booking={booking}
-                court={courts.find(c => c.id === booking.court_id)}
-                onPress={handleBookingPress} 
+                court={booking.courts}
+                onPress={() => handleBookingPress(booking)} 
               />
             ))
           ) : (
@@ -202,6 +211,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.gray[600],
+    marginTop: theme.spacing.md,
   },
   errorContainer: {
     flex: 1,
