@@ -1,37 +1,56 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, SafeAreaView, TextInput } from 'react-native';
 import { theme } from '../../constants/theme';
-import { courts } from '../../constants/mockData';
 import CourtItem from '../../components/CourtItem';
 import DatePicker from '../../components/DatePicker';
 import { useRouter } from 'expo-router';
 import { Search, Filter } from 'lucide-react-native';
 import Button from '../../components/Button';
 import { useAuth } from '../context/AuthContext';
-
-import type { Court } from '../../types';
+import { supabase } from '@/lib/supabase';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [selectedDate, setSelectedDate] = React.useState(new Date());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [courts, setCourts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Move navigation logic to useEffect
-  React.useEffect(() => {
+  useEffect(() => {
     if (!user) {
       router.replace('/(auth)/login');
+      return;
     }
-  }, [user, router]);
+    
+    fetchCourts();
+  }, [user]);
 
-  // Return null while checking authentication to prevent flash of content
-  if (!user) {
-    return null;
-  }
+  const fetchCourts = async () => {
+    try {
+      setLoading(true);
+      const { data, error: fetchError } = await supabase
+        .from('courts')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
 
-  const filteredCourts = courts.filter((court: Court) => 
+      if (fetchError) throw fetchError;
+      setCourts(data);
+    } catch (err) {
+      console.error('Erreur lors de la récupération des courts:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user) return null;
+
+  const filteredCourts = courts.filter(court => 
     court.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    court.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    court.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     court.surface.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -71,8 +90,12 @@ export default function HomeScreen() {
 
         <View style={styles.courtsSection}>
           <Text style={styles.sectionTitle}>Courts disponibles</Text>
-          {filteredCourts.length > 0 ? (
-            filteredCourts.map((court: Court) => (
+          {loading ? (
+            <Text style={styles.loadingText}>Chargement des courts...</Text>
+          ) : error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : filteredCourts.length > 0 ? (
+            filteredCourts.map((court) => (
               <CourtItem key={court.id} court={court} />
             ))
           ) : (
@@ -140,6 +163,20 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.lg,
     color: theme.colors.text,
     marginBottom: theme.spacing.md,
+  },
+  loadingText: {
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.gray[600],
+    textAlign: 'center',
+    marginTop: theme.spacing.xl,
+  },
+  errorText: {
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.error,
+    textAlign: 'center',
+    marginTop: theme.spacing.xl,
   },
   noResults: {
     fontFamily: theme.fonts.regular,

@@ -1,32 +1,74 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, SafeAreaView, TextInput } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { StyleSheet, Text, View, ScrollView, SafeAreaView, TextInput, Alert } from 'react-native';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { theme } from '@/constants/theme';
-import Header from '@/components/Header';
 import Button from '@/components/Button';
-import { courts } from '@/constants/mockData';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 export default function CreateBookingScreen() {
   const router = useRouter();
-  const [name, setName] = useState('Jean Dupont');
-  const [email, setEmail] = useState('user@example.com');
-  const [phone, setPhone] = useState('06 12 34 56 78');
+  const { user } = useAuth();
+  const params = useLocalSearchParams();
   const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
   
-  // In a real app, these would come from route params or a global state
-  const selectedCourt = courts[0];
-  const bookingDate = new Date();
-  const startTime = new Date(new Date().setHours(10, 0, 0, 0));
-  const endTime = new Date(new Date().setHours(11, 0, 0, 0));
-  const price = 25;
+  // Ces valeurs devraient venir des paramètres de navigation
+  const courtId = params.courtId as string;
+  const startTime = params.startTime ? new Date(params.startTime as string) : new Date();
+  const endTime = params.endTime ? new Date(params.endTime as string) : new Date(Date.now() + 3600000);
   
-  const handleConfirmBooking = () => {
-    // In a real app, this would send the booking data to a server
-    router.push('/booking/confirmation');
+  const handleConfirmBooking = async () => {
+    if (!user) {
+      Alert.alert('Erreur', 'Vous devez être connecté pour effectuer une réservation');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { data: existingBookings, error: checkError } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('court_id', courtId)
+        .eq('status', 'confirmed')
+        .or(`start_time.lte.${endTime.toISOString()},end_time.gte.${startTime.toISOString()}`);
+
+      if (checkError) throw checkError;
+
+      if (existingBookings && existingBookings.length > 0) {
+        Alert.alert('Erreur', 'Ce créneau n\'est plus disponible');
+        return;
+      }
+
+      const { error: bookingError } = await supabase
+        .from('bookings')
+        .insert({
+          user_id: user.id,
+          court_id: courtId,
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (bookingError) throw bookingError;
+
+      router.push('/booking/confirmation');
+    } catch (error) {
+      console.error('Erreur lors de la réservation:', error);
+      Alert.alert(
+        'Erreur',
+        'Une erreur est survenue lors de la réservation. Veuillez réessayer.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
-  
+
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen
@@ -44,14 +86,9 @@ export default function CreateBookingScreen() {
           <Text style={styles.sectionTitle}>Détails de la réservation</Text>
           
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Court</Text>
-            <Text style={styles.infoValue}>{selectedCourt.name}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Date</Text>
             <Text style={styles.infoValue}>
-              {format(bookingDate, 'EEEE d MMMM yyyy', { locale: fr })}
+              {format(startTime, 'EEEE d MMMM yyyy', { locale: fr })}
             </Text>
           </View>
           
@@ -61,11 +98,6 @@ export default function CreateBookingScreen() {
               {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
             </Text>
           </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Prix</Text>
-            <Text style={styles.infoValue}>{price}€</Text>
-          </View>
         </View>
         
         <View style={styles.formSection}>
@@ -73,35 +105,19 @@ export default function CreateBookingScreen() {
           
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Nom complet</Text>
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Votre nom"
-            />
+            <Text style={styles.userInfo}>
+              {user?.first_name} {user?.last_name}
+            </Text>
           </View>
           
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Votre email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+            <Text style={styles.userInfo}>{user?.email}</Text>
           </View>
           
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Téléphone</Text>
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="Votre numéro de téléphone"
-              keyboardType="phone-pad"
-            />
+            <Text style={styles.userInfo}>{user?.phone || 'Non renseigné'}</Text>
           </View>
           
           <View style={styles.inputContainer}>
@@ -127,11 +143,11 @@ export default function CreateBookingScreen() {
       </ScrollView>
       
       <View style={styles.footer}>
-        <Text style={styles.totalPrice}>Total: {price}€</Text>
         <Button
-          title="Confirmer la réservation"
+          title={loading ? "Réservation en cours..." : "Confirmer la réservation"}
           onPress={handleConfirmBooking}
           size="lg"
+          disabled={loading}
         />
       </View>
     </SafeAreaView>
@@ -191,6 +207,12 @@ const styles = StyleSheet.create({
     color: theme.colors.gray[700],
     marginBottom: theme.spacing.xs,
   },
+  userInfo: {
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.text,
+    paddingVertical: theme.spacing.sm,
+  },
   input: {
     backgroundColor: theme.colors.gray[100],
     borderRadius: theme.borderRadius.md,
@@ -220,17 +242,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: theme.colors.background,
     padding: theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray[200],
-  },
-  totalPrice: {
-    fontFamily: theme.fonts.bold,
-    fontSize: theme.fontSizes.lg,
-    color: theme.colors.primary,
-    marginRight: theme.spacing.md,
   },
 });

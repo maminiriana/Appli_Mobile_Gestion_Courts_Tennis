@@ -1,12 +1,20 @@
 import React from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
-import { Court } from '@/types';
 import { theme } from '@/constants/theme';
 import { MapPin, DoorClosed, CircleCheck as CheckCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { FEATURES } from '@/constants/mockData';
 
 interface CourtItemProps {
-  court: Court;
+  court: {
+    id: string;
+    name: string;
+    description?: string;
+    surface: string;
+    indoor: boolean;
+    image_url?: string;
+    features?: string[];
+  };
 }
 
 export default function CourtItem({ court }: CourtItemProps) {
@@ -16,9 +24,19 @@ export default function CourtItem({ court }: CourtItemProps) {
     router.push(`/court/${court.id}`);
   };
 
+  const getFeatureLabel = (featureId: string) => {
+    const feature = FEATURES.find(f => f.id === featureId);
+    return feature ? feature.label : featureId;
+  };
+
   return (
     <TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.9}>
-      <Image source={{ uri: court.imageUrl }} style={styles.image} />
+      <Image 
+        source={{ 
+          uri: court.image_url || 'https://images.pexels.com/photos/209977/pexels-photo-209977.jpeg'
+        }} 
+        style={styles.image} 
+      />
       <View style={styles.infoContainer}>
         <Text style={styles.name}>{court.name}</Text>
         <View style={styles.details}>
@@ -28,20 +46,28 @@ export default function CourtItem({ court }: CourtItemProps) {
           </View>
           <View style={styles.detailItem}>
             <DoorClosed size={16} color={theme.colors.gray[600]} />
-            <Text style={styles.detailText}>{court.indoor ? 'Intérieur' : 'Extérieur'}</Text>
+            <Text style={styles.detailText}>
+              {court.indoor ? 'Intérieur' : 'Extérieur'}
+            </Text>
           </View>
         </View>
-        <View style={styles.features}>
-          {court.features.slice(0, 2).map((feature, index) => (
-            <View key={index} style={styles.feature}>
-              <CheckCircle size={14} color={theme.colors.primary} />
-              <Text style={styles.featureText}>{feature}</Text>
-            </View>
-          ))}
-          {court.features.length > 2 && (
-            <Text style={styles.moreFeatures}>+{court.features.length - 2}</Text>
-          )}
-        </View>
+        {court.features && Array.isArray(court.features) && court.features.length > 0 && (
+          <View style={styles.features}>
+            {court.features.slice(0, 2).map((featureId, index) => (
+              <View key={index} style={styles.feature}>
+                <CheckCircle size={14} color={theme.colors.primary} />
+                <Text style={styles.featureText}>
+                  {getFeatureLabel(featureId)}
+                </Text>
+              </View>
+            ))}
+            {court.features.length > 2 && (
+              <Text style={styles.moreFeatures}>
+                +{court.features.length - 2}
+              </Text>
+            )}
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
