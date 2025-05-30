@@ -9,10 +9,11 @@ import {
   TextInput,
   Alert,
   Modal,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import { theme } from '@/constants/theme';
-import { Search, Filter, Plus, X } from 'lucide-react-native';
+import { Search, Filter, Plus, X, Edit2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import Button from '@/components/Button';
 
@@ -31,8 +32,17 @@ interface FormData {
   image_url: string;
 }
 
-const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
-  const [formData, setFormData] = useState<FormData>({
+interface CourtModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: (data: FormData) => void;
+  isLoading: boolean;
+  initialData?: FormData;
+  mode: 'add' | 'edit';
+}
+
+const CourtModal = ({ visible, onClose, onSubmit, isLoading, initialData, mode }: CourtModalProps) => {
+  const [formData, setFormData] = useState<FormData>(initialData || {
     name: '',
     description: '',
     surface: '',
@@ -40,6 +50,12 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
     features: [],
     image_url: ''
   });
+
+  useEffect(() => {
+    if (initialData && visible) {
+      setFormData(initialData);
+    }
+  }, [initialData, visible]);
 
   const handleChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({
@@ -70,7 +86,9 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Ajouter un court</Text>
+            <Text style={styles.modalTitle}>
+              {mode === 'add' ? 'Ajouter un court' : 'Modifier le court'}
+            </Text>
             <TouchableOpacity onPress={onClose}>
               <X size={24} color={theme.colors.gray[600]} />
             </TouchableOpacity>
@@ -110,6 +128,16 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
             </View>
 
             <View style={styles.inputGroup}>
+              <Text style={styles.label}>URL de l'image</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.image_url}
+                onChangeText={(text) => handleChange('image_url', text)}
+                placeholder="URL de l'image du court"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
               <Text style={styles.label}>Caractéristiques</Text>
               {FEATURES.map((feature) => (
                 <View key={feature.id} style={styles.featureCheckbox}>
@@ -129,16 +157,6 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
                 onValueChange={(value) => handleChange('indoor', value)}
               />
             </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>URL de l'image</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.image_url}
-                onChangeText={(text) => handleChange('image_url', text)}
-                placeholder="URL de l'image du court"
-              />
-            </View>
           </ScrollView>
 
           <View style={styles.modalFooter}>
@@ -149,7 +167,7 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
               style={styles.modalButton}
             />
             <Button
-              title="Ajouter"
+              title={mode === 'add' ? "Ajouter" : "Modifier"}
               onPress={handleSubmit}
               style={styles.modalButton}
               disabled={isLoading}
@@ -168,7 +186,9 @@ export default function CourtsManagementScreen() {
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [editingCourt, setEditingCourt] = useState(null);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
 
   useEffect(() => {
     fetchCourts();
@@ -211,13 +231,78 @@ export default function CourtsManagementScreen() {
       if (error) throw error;
 
       Alert.alert('Succès', 'Le court a été ajouté avec succès');
-      setShowAddModal(false);
+      setShowModal(false);
       await fetchCourts();
     } catch (err) {
       console.error('Error adding court:', err);
       Alert.alert('Erreur', 'Impossible d\'ajouter le court');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditCourt = async (courtData: FormData) => {
+    if (!courtData.name || !courtData.surface) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('courts')
+        .update({
+          ...courtData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingCourt.id);
+
+      if (error) throw error;
+
+      Alert.alert('Succès', 'Le court a été modifié avec succès');
+      setShowModal(false);
+      setEditingCourt(null);
+      await fetchCourts();
+    } catch (err) {
+      console.error('Error updating court:', err);
+      Alert.alert('Erreur', 'Impossible de modifier le court');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleActive = async (court) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('courts')
+        .update({
+          is_active: !court.is_active,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', court.id);
+
+      if (error) throw error;
+      await fetchCourts();
+    } catch (err) {
+      console.error('Error toggling court status:', err);
+      Alert.alert('Erreur', 'Impossible de modifier le statut du court');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEditModal = (court) => {
+    setEditingCourt(court);
+    setModalMode('edit');
+    setShowModal(true);
+  };
+
+  const handleModalSubmit = (data: FormData) => {
+    if (modalMode === 'add') {
+      handleAddCourt(data);
+    } else {
+      handleEditCourt(data);
     }
   };
 
@@ -257,7 +342,11 @@ export default function CourtsManagementScreen() {
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
+          onPress={() => {
+            setModalMode('add');
+            setEditingCourt(null);
+            setShowModal(true);
+          }}
         >
           <Plus size={20} color={theme.colors.primary} />
         </TouchableOpacity>
@@ -285,55 +374,65 @@ export default function CourtsManagementScreen() {
           .map(court => (
             <View key={court.id} style={styles.courtCard}>
               <View style={styles.courtHeader}>
-                <Text style={styles.courtName}>{court.name}</Text>
-                <View style={[
-                  styles.statusBadge,
-                  { backgroundColor: court.is_active ? `${theme.colors.success}20` : `${theme.colors.error}20` }
-                ]}>
-                  <Text style={[
-                    styles.statusText,
-                    { color: court.is_active ? theme.colors.success : theme.colors.error }
-                  ]}>
-                    {court.is_active ? 'Actif' : 'Inactif'}
+                <View style={styles.courtImageContainer}>
+                  {court.image_url ? (
+                    <Image 
+                      source={{ uri: court.image_url }} 
+                      style={styles.courtImage}
+                    />
+                  ) : (
+                    <View style={[styles.courtImage, styles.courtImagePlaceholder]}>
+                      <Text style={styles.courtImagePlaceholderText}>
+                        {court.name.charAt(0)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.courtInfo}>
+                  <Text style={styles.courtName}>{court.name}</Text>
+                  <Text style={styles.courtSurface}>{court.surface}</Text>
+                  <Text style={styles.courtType}>
+                    {court.indoor ? 'Court intérieur' : 'Court extérieur'}
                   </Text>
                 </View>
-              </View>
-
-              <Text style={styles.courtDescription}>{court.description}</Text>
-
-              <View style={styles.courtDetails}>
-                <Text style={styles.detailLabel}>Surface:</Text>
-                <Text style={styles.detailText}>{court.surface}</Text>
-              </View>
-
-              <View style={styles.courtDetails}>
-                <Text style={styles.detailLabel}>Type:</Text>
-                <Text style={styles.detailText}>
-                  {court.indoor ? 'Court intérieur' : 'Court extérieur'}
-                </Text>
+                <View style={styles.courtActions}>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => openEditModal(court)}
+                  >
+                    <Edit2 size={20} color={theme.colors.primary} />
+                  </TouchableOpacity>
+                  <Switch
+                    value={court.is_active}
+                    onValueChange={() => handleToggleActive(court)}
+                    trackColor={{ false: theme.colors.gray[300], true: theme.colors.primary }}
+                  />
+                </View>
               </View>
 
               {court.features && court.features.length > 0 && (
                 <View style={styles.featuresContainer}>
-                  <Text style={styles.detailLabel}>Caractéristiques:</Text>
-                  <View style={styles.featuresList}>
-                    {court.features.map((feature, index) => (
-                      <View key={index} style={styles.featureTag}>
-                        <Text style={styles.featureTagText}>{feature}</Text>
-                      </View>
-                    ))}
-                  </View>
+                  {court.features.map((feature, index) => (
+                    <View key={index} style={styles.featureTag}>
+                      <Text style={styles.featureTagText}>{feature}</Text>
+                    </View>
+                  ))}
                 </View>
               )}
             </View>
           ))}
       </ScrollView>
 
-      <AddCourtModal
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSubmit={handleAddCourt}
+      <CourtModal
+        visible={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setEditingCourt(null);
+        }}
+        onSubmit={handleModalSubmit}
         isLoading={loading}
+        initialData={editingCourt}
+        mode={modalMode}
       />
     </View>
   );
@@ -409,52 +508,61 @@ const styles = StyleSheet.create({
   },
   courtHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+  },
+  courtImageContainer: {
+    marginRight: theme.spacing.md,
+  },
+  courtImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  courtImagePlaceholder: {
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  courtImagePlaceholderText: {
+    color: theme.colors.background,
+    fontSize: 24,
+    fontFamily: theme.fonts.bold,
+  },
+  courtInfo: {
+    flex: 1,
   },
   courtName: {
     fontFamily: theme.fonts.semiBold,
     fontSize: theme.fontSizes.lg,
     color: theme.colors.text,
+    marginBottom: 2,
   },
-  statusBadge: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
-    borderRadius: theme.borderRadius.pill,
-  },
-  statusText: {
-    fontFamily: theme.fonts.medium,
-    fontSize: theme.fontSizes.sm,
-  },
-  courtDescription: {
+  courtSurface: {
     fontFamily: theme.fonts.regular,
     fontSize: theme.fontSizes.md,
     color: theme.colors.gray[600],
-    marginBottom: theme.spacing.md,
+    marginBottom: 2,
   },
-  courtDetails: {
-    flexDirection: 'row',
-    marginBottom: theme.spacing.xs,
-  },
-  detailLabel: {
-    fontFamily: theme.fonts.medium,
-    fontSize: theme.fontSizes.md,
-    color: theme.colors.gray[700],
-    marginRight: theme.spacing.xs,
-  },
-  detailText: {
+  courtType: {
     fontFamily: theme.fonts.regular,
-    fontSize: theme.fontSizes.md,
-    color: theme.colors.text,
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.gray[500],
+  },
+  courtActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  editButton: {
+    padding: theme.spacing.xs,
   },
   featuresContainer: {
-    marginTop: theme.spacing.sm,
-  },
-  featuresList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
+    paddingTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.gray[200],
   },
   featureTag: {
     backgroundColor: theme.colors.gray[100],
