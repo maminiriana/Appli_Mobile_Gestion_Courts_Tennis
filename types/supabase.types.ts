@@ -113,8 +113,8 @@ export interface Database {
           id: string
           user_id: string
           court_id: string
-          time_slot_id: number
-          date: string
+          start_time: string
+          end_time: string
           status: string
           created_at: string
           updated_at: string
@@ -123,8 +123,8 @@ export interface Database {
           id?: string
           user_id: string
           court_id: string
-          time_slot_id: number
-          date: string
+          start_time: string
+          end_time: string
           status?: string
           created_at?: string
           updated_at?: string
@@ -133,8 +133,8 @@ export interface Database {
           id?: string
           user_id?: string
           court_id?: string
-          time_slot_id?: number
-          date?: string
+          start_time?: string
+          end_time?: string
           status?: string
           created_at?: string
           updated_at?: string

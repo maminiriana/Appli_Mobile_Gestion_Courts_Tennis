@@ -17,7 +17,7 @@ import { ChevronLeft, MapPin, DoorClosed, CircleCheck as CheckCircle } from 'luc
 import DatePicker from '@/components/DatePicker';
 import TimeSlotPicker from '@/components/TimeSlotPicker';
 import Button from '@/components/Button';
-import { format } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -62,8 +62,9 @@ export default function CourtDetailScreen() {
   
   const fetchTimeSlots = async () => {
     try {
-      // Format date for comparison
-      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      // Get start and end of selected date
+      const dayStart = startOfDay(selectedDate);
+      const dayEnd = endOfDay(selectedDate);
       
       // Fetch all time slots for this court
       const { data: slots, error: slotsError } = await supabase
@@ -74,20 +75,36 @@ export default function CourtDetailScreen() {
       
       if (slotsError) throw slotsError;
 
-      // Fetch existing bookings for this date and court
+      // Fetch existing bookings for this date range and court
       const { data: existingBookings, error: bookingsError } = await supabase
         .from('bookings')
         .select('*')
         .eq('court_id', id)
-        .eq('date', formattedDate);
+        .gte('start_time', dayStart.toISOString())
+        .lte('end_time', dayEnd.toISOString());
       
       if (bookingsError) throw bookingsError;
       
       // Mark slots as available or not based on bookings
-      const availableSlots = slots?.map(slot => ({
-        ...slot,
-        isAvailable: !existingBookings?.some(booking => booking.time_slot_id === slot.id)
-      }));
+      const availableSlots = slots?.map(slot => {
+        const slotStart = parseISO(`${format(selectedDate, 'yyyy-MM-dd')}T${slot.start_time}`);
+        const slotEnd = parseISO(`${format(selectedDate, 'yyyy-MM-dd')}T${slot.end_time}`);
+        
+        const isBooked = existingBookings?.some(booking => {
+          const bookingStart = parseISO(booking.start_time);
+          const bookingEnd = parseISO(booking.end_time);
+          return (
+            (slotStart >= bookingStart && slotStart < bookingEnd) ||
+            (slotEnd > bookingStart && slotEnd <= bookingEnd) ||
+            (slotStart <= bookingStart && slotEnd >= bookingEnd)
+          );
+        });
+        
+        return {
+          ...slot,
+          isAvailable: !isBooked
+        };
+      });
       
       setTimeSlots(availableSlots || []);
       setBookings(existingBookings || []);
@@ -110,15 +127,16 @@ export default function CourtDetailScreen() {
     }
 
     try {
-      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      const bookingStartTime = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedSlot.start_time}`;
+      const bookingEndTime = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedSlot.end_time}`;
       
       const { error: bookingError } = await supabase
         .from('bookings')
         .insert({
           user_id: user.id,
           court_id: id,
-          time_slot_id: selectedSlot.id,
-          date: formattedDate,
+          start_time: bookingStartTime,
+          end_time: bookingEndTime,
           status: 'pending',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
