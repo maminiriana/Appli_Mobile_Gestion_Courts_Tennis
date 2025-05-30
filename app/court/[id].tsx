@@ -35,8 +35,13 @@ export default function CourtDetailScreen() {
   const [isBooking, setIsBooking] = useState(false);
   
   useEffect(() => {
+    if (!user) {
+      router.replace('/(auth)/login');
+      return;
+    }
+    
     fetchCourtDetails();
-  }, [id]);
+  }, [user]);
   
   useEffect(() => {
     if (court) {
@@ -116,7 +121,7 @@ export default function CourtDetailScreen() {
     }
   };
   
-  const handleBooking = async () => {
+  const handleBooking = () => {
     if (!user) {
       Alert.alert('Erreur', 'Vous devez être connecté pour effectuer une réservation');
       router.push('/login');
@@ -128,51 +133,17 @@ export default function CourtDetailScreen() {
       return;
     }
 
-    try {
-      setIsBooking(true);
-      const bookingStartTime = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedSlot.start_time}`;
-      const bookingEndTime = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedSlot.end_time}`;
-      
-      const { error: bookingError } = await supabase
-        .from('bookings')
-        .insert({
-          user_id: user.id,
-          court_id: id,
-          start_time: bookingStartTime,
-          end_time: bookingEndTime,
-          status: 'pending',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
+    const bookingStartTime = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedSlot.start_time}`;
+    const bookingEndTime = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedSlot.end_time}`;
 
-      if (bookingError) throw bookingError;
-
-      // Refresh time slots to update availability
-      await fetchTimeSlots();
-      
-      // Reset selected slot
-      setSelectedSlot(null);
-      
-      Alert.alert(
-        'Réservation confirmée',
-        'Votre réservation a été effectuée avec succès',
-        [
-          {
-            text: 'Voir mes réservations',
-            onPress: () => router.push('/bookings'),
-          },
-          {
-            text: 'OK',
-            style: 'cancel',
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('Error creating booking:', error);
-      Alert.alert('Erreur', 'Impossible de créer la réservation');
-    } finally {
-      setIsBooking(false);
-    }
+    router.push({
+      pathname: '/booking/create',
+      params: {
+        courtId: id,
+        startTime: bookingStartTime,
+        endTime: bookingEndTime
+      }
+    });
   };
   
   if (loading) {
