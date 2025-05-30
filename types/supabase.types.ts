@@ -88,13 +88,33 @@ export interface Database {
           updated_at?: string
         }
       }
+      time_slots: {
+        Row: {
+          id: number
+          court_id: string
+          start_time: string
+          end_time: string
+        }
+        Insert: {
+          id?: number
+          court_id: string
+          start_time: string
+          end_time: string
+        }
+        Update: {
+          id?: number
+          court_id?: string
+          start_time?: string
+          end_time?: string
+        }
+      }
       bookings: {
         Row: {
           id: string
           user_id: string
           court_id: string
-          start_time: string
-          end_time: string
+          time_slot_id: number
+          date: string
           status: string
           created_at: string
           updated_at: string
@@ -103,8 +123,8 @@ export interface Database {
           id?: string
           user_id: string
           court_id: string
-          start_time: string
-          end_time: string
+          time_slot_id: number
+          date: string
           status?: string
           created_at?: string
           updated_at?: string
@@ -113,8 +133,8 @@ export interface Database {
           id?: string
           user_id?: string
           court_id?: string
-          start_time?: string
-          end_time?: string
+          time_slot_id?: number
+          date?: string
           status?: string
           created_at?: string
           updated_at?: string

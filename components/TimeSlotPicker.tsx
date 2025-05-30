@@ -1,9 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
-import { TimeSlot } from '@/types';
 import { theme } from '@/constants/theme';
+
+interface TimeSlot {
+  id: number;
+  start_time: string;
+  end_time: string;
+  isAvailable: boolean;
+}
 
 interface TimeSlotPickerProps {
   timeSlots: TimeSlot[];
@@ -16,7 +20,7 @@ export default function TimeSlotPicker({ timeSlots, selectedSlot, onSelectSlot }
   const groupedSlots: Record<string, TimeSlot[]> = {};
   
   timeSlots.forEach(slot => {
-    const hourKey = format(slot.startTime, 'HH:mm');
+    const hourKey = slot.start_time;
     if (!groupedSlots[hourKey]) {
       groupedSlots[hourKey] = [];
     }
@@ -48,7 +52,7 @@ export default function TimeSlotPicker({ timeSlots, selectedSlot, onSelectSlot }
                     selectedSlot?.id === slot.id && styles.selectedText,
                   ]}
                 >
-                  {format(slot.startTime, 'HH:mm')}
+                  {slot.start_time}
                 </Text>
               </TouchableOpacity>
             ))}

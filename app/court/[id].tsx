@@ -8,7 +8,8 @@ import {
   SafeAreaView, 
   TouchableOpacity,
   StatusBar,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { theme } from '@/constants/theme';
@@ -16,52 +17,21 @@ import { ChevronLeft, MapPin, DoorClosed, CircleCheck as CheckCircle } from 'luc
 import DatePicker from '@/components/DatePicker';
 import TimeSlotPicker from '@/components/TimeSlotPicker';
 import Button from '@/components/Button';
-import { format, isSameDay, addHours, setHours, setMinutes } from 'date-fns';
-import { TimeSlot } from '@/types';
+import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
-
-// Helper function to generate time slots for a given date
-const generateTimeSlots = (date: Date, existingBookings: any[]): TimeSlot[] => {
-  const slots: TimeSlot[] = [];
-  const startHour = 8; // Start at 8 AM
-  const endHour = 22; // End at 10 PM
-  
-  for (let hour = startHour; hour < endHour; hour++) {
-    const startTime = setMinutes(setHours(date, hour), 0);
-    const endTime = addHours(startTime, 1);
-    
-    // Check if slot overlaps with any existing booking
-    const isBooked = existingBookings.some(booking => {
-      const bookingStart = new Date(booking.start_time);
-      const bookingEnd = new Date(booking.end_time);
-      return (
-        (startTime >= bookingStart && startTime < bookingEnd) ||
-        (endTime > bookingStart && endTime <= bookingEnd)
-      );
-    });
-    
-    if (!isBooked) {
-      slots.push({
-        id: `${hour}`,
-        startTime,
-        endTime,
-        available: true
-      });
-    }
-  }
-  
-  return slots;
-};
+import { useAuth } from '../context/AuthContext';
 
 export default function CourtDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { user } = useAuth();
   
   const [court, setCourt] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<any>(null);
+  const [timeSlots, setTimeSlots] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
   
   useEffect(() => {
     fetchCourtDetails();
@@ -82,7 +52,6 @@ export default function CourtDetailScreen() {
         .single();
       
       if (error) throw error;
-      
       setCourt(courtData);
     } catch (error) {
       console.error('Error fetching court details:', error);
@@ -93,40 +62,75 @@ export default function CourtDetailScreen() {
   
   const fetchTimeSlots = async () => {
     try {
-      // Fetch bookings for the selected date
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
+      // Format date for comparison
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
       
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Fetch all time slots for this court
+      const { data: slots, error: slotsError } = await supabase
+        .from('time_slots')
+        .select('*')
+        .eq('court_id', id)
+        .order('start_time');
       
-      const { data: bookings, error } = await supabase
+      if (slotsError) throw slotsError;
+
+      // Fetch existing bookings for this date and court
+      const { data: existingBookings, error: bookingsError } = await supabase
         .from('bookings')
         .select('*')
         .eq('court_id', id)
-        .gte('start_time', startOfDay.toISOString())
-        .lte('end_time', endOfDay.toISOString());
+        .eq('date', formattedDate);
       
-      if (error) throw error;
+      if (bookingsError) throw bookingsError;
       
-      // Generate available time slots
-      const slots = generateTimeSlots(selectedDate, bookings || []);
-      setTimeSlots(slots);
+      // Mark slots as available or not based on bookings
+      const availableSlots = slots?.map(slot => ({
+        ...slot,
+        isAvailable: !existingBookings?.some(booking => booking.time_slot_id === slot.id)
+      }));
+      
+      setTimeSlots(availableSlots || []);
+      setBookings(existingBookings || []);
     } catch (error) {
       console.error('Error fetching time slots:', error);
+      Alert.alert('Erreur', 'Impossible de récupérer les créneaux disponibles');
     }
   };
   
-  const handleBooking = () => {
-    if (selectedSlot) {
-      router.push({
-        pathname: '/booking/create',
-        params: {
-          courtId: id,
-          startTime: selectedSlot.startTime.toISOString(),
-          endTime: selectedSlot.endTime.toISOString()
-        }
-      });
+  const handleBooking = async () => {
+    if (!user) {
+      Alert.alert('Erreur', 'Vous devez être connecté pour effectuer une réservation');
+      router.push('/login');
+      return;
+    }
+
+    if (!selectedSlot) {
+      Alert.alert('Erreur', 'Veuillez sélectionner un créneau horaire');
+      return;
+    }
+
+    try {
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      
+      const { error: bookingError } = await supabase
+        .from('bookings')
+        .insert({
+          user_id: user.id,
+          court_id: id,
+          time_slot_id: selectedSlot.id,
+          date: formattedDate,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (bookingError) throw bookingError;
+
+      Alert.alert('Succès', 'Votre réservation a été effectuée avec succès');
+      router.push('/booking/confirmation');
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      Alert.alert('Erreur', 'Impossible de créer la réservation');
     }
   };
   
@@ -216,10 +220,10 @@ export default function CourtDetailScreen() {
         {selectedSlot && (
           <View style={styles.selectedSlotInfo}>
             <Text style={styles.selectedSlotDate}>
-              {format(selectedSlot.startTime, 'dd/MM/yyyy')}
+              {format(selectedDate, 'dd/MM/yyyy')}
             </Text>
             <Text style={styles.selectedSlotTime}>
-              {format(selectedSlot.startTime, 'HH:mm')} - {format(selectedSlot.endTime, 'HH:mm')}
+              {selectedSlot.start_time} - {selectedSlot.end_time}
             </Text>
           </View>
         )}
