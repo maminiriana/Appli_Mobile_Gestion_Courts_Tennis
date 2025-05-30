@@ -13,7 +13,7 @@ import {
   Image
 } from 'react-native';
 import { theme } from '@/constants/theme';
-import { Search, Filter, Plus, X, Edit2 } from 'lucide-react-native';
+import { Search, Filter, Plus, X, CreditCard as Edit2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import Button from '@/components/Button';
 
