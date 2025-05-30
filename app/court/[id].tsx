@@ -32,6 +32,7 @@ export default function CourtDetailScreen() {
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
   const [timeSlots, setTimeSlots] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [isBooking, setIsBooking] = useState(false);
   
   useEffect(() => {
     fetchCourtDetails();
@@ -81,7 +82,8 @@ export default function CourtDetailScreen() {
         .select('*')
         .eq('court_id', id)
         .gte('start_time', dayStart.toISOString())
-        .lte('end_time', dayEnd.toISOString());
+        .lte('end_time', dayEnd.toISOString())
+        .neq('status', 'cancelled');
       
       if (bookingsError) throw bookingsError;
       
@@ -127,6 +129,7 @@ export default function CourtDetailScreen() {
     }
 
     try {
+      setIsBooking(true);
       const bookingStartTime = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedSlot.start_time}`;
       const bookingEndTime = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedSlot.end_time}`;
       
@@ -144,11 +147,31 @@ export default function CourtDetailScreen() {
 
       if (bookingError) throw bookingError;
 
-      Alert.alert('Succès', 'Votre réservation a été effectuée avec succès');
-      router.push('/booking/confirmation');
+      // Refresh time slots to update availability
+      await fetchTimeSlots();
+      
+      // Reset selected slot
+      setSelectedSlot(null);
+      
+      Alert.alert(
+        'Réservation confirmée',
+        'Votre réservation a été effectuée avec succès',
+        [
+          {
+            text: 'Voir mes réservations',
+            onPress: () => router.push('/bookings'),
+          },
+          {
+            text: 'OK',
+            style: 'cancel',
+          },
+        ]
+      );
     } catch (error) {
       console.error('Error creating booking:', error);
       Alert.alert('Erreur', 'Impossible de créer la réservation');
+    } finally {
+      setIsBooking(false);
     }
   };
   
@@ -246,9 +269,9 @@ export default function CourtDetailScreen() {
           </View>
         )}
         <Button
-          title={selectedSlot ? "Réserver" : 'Sélectionner un créneau'}
+          title={selectedSlot ? (isBooking ? "Réservation en cours..." : "Réserver") : 'Sélectionner un créneau'}
           onPress={handleBooking}
-          disabled={!selectedSlot}
+          disabled={!selectedSlot || isBooking}
           size="lg"
           style={styles.bookButton}
         />
