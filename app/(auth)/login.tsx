@@ -26,7 +26,6 @@ export default function LoginScreen() {
       setIsLoading(true);
       setError(null);
 
-      // Fetch user by email
       const { data: users, error: queryError } = await supabase
         .from('users')
         .select('*')
@@ -48,16 +47,13 @@ export default function LoginScreen() {
         throw new Error('Mot de passe non défini pour cet utilisateur');
       }
 
-      // Verify password
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
         throw new Error('Mot de passe incorrect');
       }
 
-      // Generate a simple token (in a real app, use a proper JWT library)
       const token = btoa(user.id + ':' + new Date().getTime());
 
-      // Remove sensitive data before setting user in context
       const { password: _, ...safeUser } = user;
       
       setUser(safeUser);

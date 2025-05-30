@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, SafeAreaView, TextInput, Image, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { StyleSheet, Text, View, ScrollView, SafeAreaView, TextInput, Image } from 'react-native';
 import { theme } from '../../constants/theme';
-import { courts, timeSlots } from '../../constants/mockData';
+import { courts } from '../../constants/mockData';
 import CourtItem from '../../components/CourtItem';
 import DatePicker from '../../components/DatePicker';
 import { useRouter } from 'expo-router';
@@ -13,9 +13,16 @@ import type { Court } from '../../types';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [searchQuery, setSearchQuery] = useState('');
   const { user } = useAuth();
+
+  // If user is not logged in, redirect to login page
+  if (!user) {
+    router.replace('/(auth)/login');
+    return null;
+  }
+
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [selectedDate, setSelectedDate] = React.useState(new Date());
 
   const filteredCourts = courts.filter((court: Court) => 
     court.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -23,64 +30,12 @@ export default function HomeScreen() {
     court.surface.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const renderProfileImage = () => {
-    if (!user) return null;
-
-    if (user.profile_image) {
-      // Si l'image est en base64, elle commencera par 'data:'
-      if (user.profile_image.startsWith('data:')) {
-        return (
-          <Image
-            source={{ uri: user.profile_image }}
-            style={styles.userIcon}
-          />
-        );
-      }
-      // Sinon, c'est une URL classique
-      return (
-        <Image
-          source={{ uri: user.profile_image }}
-          style={styles.userIcon}
-        />
-      );
-    }
-
-    return (
-      <View style={styles.userIconPlaceholder}>
-        <Text style={styles.userIconText}>
-          {user.first_name ? user.first_name.charAt(0) : 'U'}
-        </Text>
-      </View>
-    );
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.headerContainer}>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.title}>Tennis Court Manager</Text>
-            <Text style={styles.subtitle}>Réservez votre court de tennis</Text>
-          </View>
-          <View style={styles.headerButtonsContainer}>
-            {!user ? (
-              <>
-                <Button
-                  title="Se connecter"
-                  onPress={() => router.push('/(auth)/login')}
-                  style={{ marginRight: 8 }}
-                />
-                <Button
-                  title="S'inscrire"
-                  onPress={() => router.push('/(auth)/register')}
-                />
-              </>
-            ) : (
-              <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
-                {renderProfileImage()}
-              </TouchableOpacity>
-            )}
-          </View>
+        <View style={styles.header}>
+          <Text style={styles.title}>Tennis Court Manager</Text>
+          <Text style={styles.subtitle}>Réservez votre court de tennis</Text>
         </View>
 
         <View style={styles.searchContainer}>
@@ -133,36 +88,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.xl,
     paddingBottom: theme.spacing.xl,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  headerButtonsContainer: {
-    flexDirection: 'row',
-  },
-  userIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  userIconPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userIconText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 18,
   },
   header: {
     marginBottom: theme.spacing.lg,
