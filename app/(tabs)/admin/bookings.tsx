@@ -18,6 +18,125 @@ import DatePicker from '@/components/DatePicker';
 import { supabase } from '@/lib/supabase';
 import Button from '@/components/Button';
 
+interface FormData {
+  user_id: string;
+  court_id: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+}
+
+const AddBookingModal = ({ visible, onClose, onSubmit, isLoading, courts, users }) => {
+  const [formData, setFormData] = useState<FormData>({
+    user_id: '',
+    court_id: '',
+    start_time: new Date().toISOString(),
+    end_time: new Date(Date.now() + 3600000).toISOString(),
+    status: 'pending'
+  });
+
+  const handleChange = (field: keyof FormData, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSubmit = () => {
+    onSubmit(formData);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Ajouter une réservation</Text>
+            <TouchableOpacity onPress={onClose}>
+              <X size={24} color={theme.colors.gray[600]} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Membre *</Text>
+              <TextInput
+                style={styles.input}
+                value={users.find(u => u.id === formData.user_id)?.email || ''}
+                onChangeText={(text) => {
+                  const user = users.find(u => u.email.toLowerCase().includes(text.toLowerCase()));
+                  if (user) {
+                    handleChange('user_id', user.id);
+                  }
+                }}
+                placeholder="Email du membre"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Court *</Text>
+              <TextInput
+                style={styles.input}
+                value={courts.find(c => c.id === formData.court_id)?.name || ''}
+                onChangeText={(text) => {
+                  const court = courts.find(c => c.name.toLowerCase().includes(text.toLowerCase()));
+                  if (court) {
+                    handleChange('court_id', court.id);
+                  }
+                }}
+                placeholder="Nom du court"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Date et heure de début *</Text>
+              <TextInput
+                style={styles.input}
+                value={format(new Date(formData.start_time), 'dd/MM/yyyy HH:mm')}
+                onChangeText={(text) => {
+                  // Add date picker logic here
+                }}
+                placeholder="Date et heure de début"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Date et heure de fin *</Text>
+              <TextInput
+                style={styles.input}
+                value={format(new Date(formData.end_time), 'dd/MM/yyyy HH:mm')}
+                onChangeText={(text) => {
+                  // Add date picker logic here
+                }}
+                placeholder="Date et heure de fin"
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Button
+              title="Annuler"
+              onPress={onClose}
+              variant="outline"
+              style={styles.modalButton}
+            />
+            <Button
+              title="Ajouter"
+              onPress={handleSubmit}
+              style={styles.modalButton}
+              disabled={isLoading}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export default function BookingsManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -28,13 +147,6 @@ export default function BookingsManagementScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newBooking, setNewBooking] = useState({
-    user_id: '',
-    court_id: '',
-    start_time: new Date().toISOString(),
-    end_time: new Date(Date.now() + 3600000).toISOString(),
-    status: 'pending'
-  });
 
   useEffect(() => {
     fetchData();
@@ -84,8 +196,8 @@ export default function BookingsManagementScreen() {
     }
   };
 
-  const handleAddBooking = async () => {
-    if (!newBooking.user_id || !newBooking.court_id || !newBooking.start_time || !newBooking.end_time) {
+  const handleAddBooking = async (bookingData: FormData) => {
+    if (!bookingData.user_id || !bookingData.court_id || !bookingData.start_time || !bookingData.end_time) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -96,7 +208,7 @@ export default function BookingsManagementScreen() {
       const { data, error: createError } = await supabase
         .from('bookings')
         .insert({
-          ...newBooking,
+          ...bookingData,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -107,13 +219,6 @@ export default function BookingsManagementScreen() {
 
       Alert.alert('Succès', 'La réservation a été ajoutée avec succès');
       setShowAddModal(false);
-      setNewBooking({
-        user_id: '',
-        court_id: '',
-        start_time: new Date().toISOString(),
-        end_time: new Date(Date.now() + 3600000).toISOString(),
-        status: 'pending'
-      });
       await fetchData();
     } catch (err) {
       console.error('Error adding booking:', err);
@@ -181,97 +286,7 @@ export default function BookingsManagementScreen() {
     }
   };
 
-  const AddBookingModal = () => (
-    <Modal
-      visible={showAddModal}
-      animationType="slide"
-      transparent={true}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Ajouter une réservation</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}>
-              <X size={24} color={theme.colors.gray[600]} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Membre *</Text>
-              <TextInput
-                style={styles.input}
-                value={users.find(u => u.id === newBooking.user_id)?.email || ''}
-                onChangeText={(text) => {
-                  const user = users.find(u => u.email.toLowerCase().includes(text.toLowerCase()));
-                  if (user) {
-                    setNewBooking(prev => ({ ...prev, user_id: user.id }));
-                  }
-                }}
-                placeholder="Email du membre"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Court *</Text>
-              <TextInput
-                style={styles.input}
-                value={courts.find(c => c.id === newBooking.court_id)?.name || ''}
-                onChangeText={(text) => {
-                  const court = courts.find(c => c.name.toLowerCase().includes(text.toLowerCase()));
-                  if (court) {
-                    setNewBooking(prev => ({ ...prev, court_id: court.id }));
-                  }
-                }}
-                placeholder="Nom du court"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Date et heure de début *</Text>
-              <TextInput
-                style={styles.input}
-                value={format(new Date(newBooking.start_time), 'dd/MM/yyyy HH:mm')}
-                onChangeText={(text) => {
-                  // Add date picker logic here
-                }}
-                placeholder="Date et heure de début"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Date et heure de fin *</Text>
-              <TextInput
-                style={styles.input}
-                value={format(new Date(newBooking.end_time), 'dd/MM/yyyy HH:mm')}
-                onChangeText={(text) => {
-                  // Add date picker logic here
-                }}
-                placeholder="Date et heure de fin"
-              />
-            </View>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <Button
-              title="Annuler"
-              onPress={() => setShowAddModal(false)}
-              variant="outline"
-              style={styles.modalButton}
-            />
-            <Button
-              title="Ajouter"
-              onPress={handleAddBooking}
-              style={styles.modalButton}
-              disabled={loading}
-            />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  if (loading) {
+  if (loading && bookings.length === 0) {
     return (
       <View style={styles.container}>
         <Text style={styles.loadingText}>Chargement des réservations...</Text>
@@ -374,6 +389,7 @@ export default function BookingsManagementScreen() {
                   <MapPin size={16} color={theme.colors.gray[600]} />
                   <Text style={styles.detailText}>
                     {court?.indoor ? 'Court intérieur' : 'Court extérieur'} - {court?.surface}
+                  
                   </Text>
                 </View>
 
@@ -407,7 +423,14 @@ export default function BookingsManagementScreen() {
         })}
       </ScrollView>
 
-      <AddBookingModal />
+      <AddBookingModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSubmit={handleAddBooking}
+        isLoading={loading}
+        courts={courts}
+        users={users}
+      />
     </View>
   );
 }

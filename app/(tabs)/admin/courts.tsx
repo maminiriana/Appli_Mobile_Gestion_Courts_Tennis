@@ -22,8 +22,17 @@ const FEATURES = [
   { id: 'newNet', label: 'Filet neuf' }
 ];
 
+interface FormData {
+  name: string;
+  description: string;
+  surface: string;
+  indoor: boolean;
+  features: string[];
+  image_url: string;
+}
+
 const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
     surface: '',
@@ -32,24 +41,20 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
     image_url: ''
   });
 
-  const handleChange = (field, value) => {
+  const handleChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const toggleFeature = (featureId) => {
-    setFormData(prev => {
-      const features = [...prev.features];
-      const index = features.indexOf(featureId);
-      if (index > -1) {
-        features.splice(index, 1);
-      } else {
-        features.push(featureId);
-      }
-      return { ...prev, features };
-    });
+  const toggleFeature = (featureId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      features: prev.features.includes(featureId)
+        ? prev.features.filter(f => f !== featureId)
+        : [...prev.features, featureId]
+    }));
   };
 
   const handleSubmit = () => {
@@ -187,7 +192,7 @@ export default function CourtsManagementScreen() {
     }
   };
 
-  const handleAddCourt = async (courtData) => {
+  const handleAddCourt = async (courtData: FormData) => {
     if (!courtData.name || !courtData.surface) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
       return;

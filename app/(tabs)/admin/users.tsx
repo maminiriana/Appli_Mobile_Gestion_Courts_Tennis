@@ -21,6 +21,244 @@ import * as ImagePicker from 'expo-image-picker';
 import Button from '@/components/Button';
 import bcrypt from 'bcryptjs';
 
+interface FormData {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  role: string;
+  subscription_status: boolean;
+  profile_image: string | null;
+}
+
+interface EditFormData {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string;
+}
+
+const AddUserModal = ({ visible, onClose, onSubmit, isLoading }) => {
+  const [formData, setFormData] = useState<FormData>({
+    email: '',
+    password: '',
+    first_name: '',
+    last_name: '',
+    phone: '',
+    role: 'joueur',
+    subscription_status: false,
+    profile_image: null
+  });
+
+  const handleChange = (field: keyof FormData, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSubmit = () => {
+    onSubmit(formData);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Ajouter un membre</Text>
+            <TouchableOpacity onPress={onClose}>
+              <X size={24} color={theme.colors.gray[600]} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email *</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.email}
+                onChangeText={(text) => handleChange('email', text)}
+                placeholder="Email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Mot de passe *</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.password}
+                onChangeText={(text) => handleChange('password', text)}
+                placeholder="Mot de passe"
+                secureTextEntry
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Prénom *</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.first_name}
+                onChangeText={(text) => handleChange('first_name', text)}
+                placeholder="Prénom"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nom *</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.last_name}
+                onChangeText={(text) => handleChange('last_name', text)}
+                placeholder="Nom"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Téléphone</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.phone}
+                onChangeText={(text) => handleChange('phone', text)}
+                placeholder="Téléphone"
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Cotisation à jour</Text>
+              <Switch
+                value={formData.subscription_status}
+                onValueChange={(value) => handleChange('subscription_status', value)}
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Button
+              title="Annuler"
+              onPress={onClose}
+              variant="outline"
+              style={styles.modalButton}
+            />
+            <Button
+              title="Ajouter"
+              onPress={handleSubmit}
+              style={styles.modalButton}
+              disabled={isLoading}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const EditUserModal = ({ user, visible, onClose, onSubmit }) => {
+  const [formData, setFormData] = useState<EditFormData>({
+    first_name: user?.first_name || '',
+    last_name: user?.last_name || '',
+    phone: user?.phone || '',
+    email: user?.email || '',
+  });
+
+  const handleChange = (field: keyof EditFormData, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSubmit = () => {
+    onSubmit(formData);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Modifier le profil</Text>
+            <TouchableOpacity onPress={onClose}>
+              <X size={24} color={theme.colors.gray[600]} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Prénom</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.first_name}
+                onChangeText={(text) => handleChange('first_name', text)}
+                placeholder="Prénom"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nom</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.last_name}
+                onChangeText={(text) => handleChange('last_name', text)}
+                placeholder="Nom"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Téléphone</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.phone}
+                onChangeText={(text) => handleChange('phone', text)}
+                placeholder="Téléphone"
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.email}
+                onChangeText={(text) => handleChange('email', text)}
+                placeholder="Email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Button
+              title="Annuler"
+              onPress={onClose}
+              variant="outline"
+              style={styles.modalButton}
+            />
+            <Button
+              title="Enregistrer"
+              onPress={handleSubmit}
+              style={styles.modalButton}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export default function UsersManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterActive, setFilterActive] = useState(false);
@@ -31,16 +269,6 @@ export default function UsersManagementScreen() {
   const [editingUser, setEditingUser] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newUser, setNewUser] = useState({
-    email: '',
-    password: '',
-    first_name: '',
-    last_name: '',
-    phone: '',
-    role: 'joueur',
-    subscription_status: false,
-    profile_image: null
-  });
 
   useEffect(() => {
     fetchUsers();
@@ -175,8 +403,8 @@ export default function UsersManagementScreen() {
     }
   };
 
-  const handleAddUser = async () => {
-    if (!newUser.email || !newUser.password || !newUser.first_name || !newUser.last_name) {
+  const handleAddUser = async (userData: FormData) => {
+    if (!userData.email || !userData.password || !userData.first_name || !userData.last_name) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -184,15 +412,13 @@ export default function UsersManagementScreen() {
     try {
       setLoading(true);
 
-      // Hash the password
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(newUser.password, salt);
+      const hashedPassword = await bcrypt.hash(userData.password, salt);
 
-      // Create user
       const { data, error: createError } = await supabase
         .from('users')
         .insert({
-          ...newUser,
+          ...userData,
           password: hashedPassword,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -204,22 +430,24 @@ export default function UsersManagementScreen() {
 
       Alert.alert('Succès', 'Le membre a été ajouté avec succès');
       setShowAddModal(false);
-      setNewUser({
-        email: '',
-        password: '',
-        first_name: '',
-        last_name: '',
-        phone: '',
-        role: 'joueur',
-        subscription_status: false,
-        profile_image: null
-      });
       await fetchUsers();
     } catch (err) {
       console.error('Error adding user:', err);
       Alert.alert('Erreur', 'Impossible d\'ajouter le membre');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateUser = async (updates: EditFormData) => {
+    if (!editingUser) return;
+
+    try {
+      await updateUserProfile(editingUser.id, updates);
+      setEditingUser(null);
+      Alert.alert('Succès', 'Profil mis à jour avec succès');
+    } catch (err) {
+      Alert.alert('Erreur', 'Impossible de mettre à jour le profil');
     }
   };
 
@@ -235,224 +463,14 @@ export default function UsersManagementScreen() {
 
     return (
       <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
-        <Text style={styles.profileImageText}>
+        <Text style={styles.profileImagePlaceholderText}>
           {user.first_name?.charAt(0) || user.email.charAt(0)}
         </Text>
       </View>
     );
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      user.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (showActiveOnly) {
-      return matchesSearch && user.subscription_status;
-    }
-    
-    return matchesSearch;
-  });
-
-  const EditUserModal = ({ user, visible, onClose }) => {
-    const [firstName, setFirstName] = useState(user?.first_name || '');
-    const [lastName, setLastName] = useState(user?.last_name || '');
-    const [phone, setPhone] = useState(user?.phone || '');
-    const [email, setEmail] = useState(user?.email || '');
-
-    const handleSave = async () => {
-      try {
-        await updateUserProfile(user.id, {
-          first_name: firstName,
-          last_name: lastName,
-          phone,
-          email
-        });
-        onClose();
-      } catch (err) {
-        Alert.alert('Error', 'Failed to update user information');
-      }
-    };
-
-    return (
-      <Modal
-        visible={visible}
-        animationType="slide"
-        transparent={true}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Modifier le profil</Text>
-              <TouchableOpacity onPress={onClose}>
-                <X size={24} color={theme.colors.gray[600]} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Prénom</Text>
-                <TextInput
-                  style={styles.input}
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  placeholder="Prénom"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Nom</Text>
-                <TextInput
-                  style={styles.input}
-                  value={lastName}
-                  onChangeText={setLastName}
-                  placeholder="Nom"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Téléphone</Text>
-                <TextInput
-                  style={styles.input}
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="Téléphone"
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Email"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <Button
-                title="Annuler"
-                onPress={onClose}
-                variant="outline"
-                style={styles.modalButton}
-              />
-              <Button
-                title="Enregistrer"
-                onPress={handleSave}
-                style={styles.modalButton}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
-  const AddUserModal = () => (
-    <Modal
-      visible={showAddModal}
-      animationType="slide"
-      transparent={true}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Ajouter un membre</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}>
-              <X size={24} color={theme.colors.gray[600]} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email *</Text>
-              <TextInput
-                style={styles.input}
-                value={newUser.email}
-                onChangeText={(text) => setNewUser(prev => ({ ...prev, email: text }))}
-                placeholder="Email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Mot de passe *</Text>
-              <TextInput
-                style={styles.input}
-                value={newUser.password}
-                onChangeText={(text) => setNewUser(prev => ({ ...prev, password: text }))}
-                placeholder="Mot de passe"
-                secureTextEntry
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Prénom *</Text>
-              <TextInput
-                style={styles.input}
-                value={newUser.first_name}
-                onChangeText={(text) => setNewUser(prev => ({ ...prev, first_name: text }))}
-                placeholder="Prénom"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Nom *</Text>
-              <TextInput
-                style={styles.input}
-                value={newUser.last_name}
-                onChangeText={(text) => setNewUser(prev => ({ ...prev, last_name: text }))}
-                placeholder="Nom"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Téléphone</Text>
-              <TextInput
-                style={styles.input}
-                value={newUser.phone}
-                onChangeText={(text) => setNewUser(prev => ({ ...prev, phone: text }))}
-                placeholder="Téléphone"
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Cotisation à jour</Text>
-              <Switch
-                value={newUser.subscription_status}
-                onValueChange={(value) => setNewUser(prev => ({ ...prev, subscription_status: value }))}
-              />
-            </View>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <Button
-              title="Annuler"
-              onPress={() => setShowAddModal(false)}
-              variant="outline"
-              style={styles.modalButton}
-            />
-            <Button
-              title="Ajouter"
-              onPress={handleAddUser}
-              style={styles.modalButton}
-              disabled={loading}
-            />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  if (loading) {
+  if (loading && users.length === 0) {
     return (
       <View style={styles.container}>
         <Text style={styles.loadingText}>Chargement des utilisateurs...</Text>
@@ -467,6 +485,19 @@ export default function UsersManagementScreen() {
       </View>
     );
   }
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = 
+      user.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (showActiveOnly) {
+      return matchesSearch && user.subscription_status;
+    }
+    
+    return matchesSearch;
+  });
 
   return (
     <View style={styles.container}>
@@ -583,10 +614,16 @@ export default function UsersManagementScreen() {
           user={editingUser}
           visible={!!editingUser}
           onClose={() => setEditingUser(null)}
+          onSubmit={handleUpdateUser}
         />
       )}
 
-      <AddUserModal />
+      <AddUserModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSubmit={handleAddUser}
+        isLoading={loading}
+      />
     </View>
   );
 }
@@ -678,7 +715,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  profileImageText: {
+  profileImagePlaceholderText: {
     color: theme.colors.background,
     fontSize: 24,
     fontFamily: theme.fonts.bold,
