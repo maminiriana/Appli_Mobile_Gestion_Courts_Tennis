@@ -37,6 +37,7 @@ interface EditFormData {
   last_name: string;
   phone: string;
   email: string;
+  password?: string; // Optional because we don't want to update password every time
 }
 
 const AddUserModal = ({ visible, onClose, onSubmit, isLoading }) => {
@@ -167,6 +168,7 @@ const EditUserModal = ({ user, visible, onClose, onSubmit }) => {
     last_name: user?.last_name || '',
     phone: user?.phone || '',
     email: user?.email || '',
+    password: '', // Initialize empty password
   });
 
   const handleChange = (field: keyof EditFormData, value: string) => {
@@ -177,7 +179,12 @@ const EditUserModal = ({ user, visible, onClose, onSubmit }) => {
   };
 
   const handleSubmit = () => {
-    onSubmit(formData);
+    // Only include password in the update if it was changed
+    const updateData = {
+      ...formData,
+      password: formData.password ? formData.password : undefined
+    };
+    onSubmit(updateData);
   };
 
   return (
@@ -236,6 +243,17 @@ const EditUserModal = ({ user, visible, onClose, onSubmit }) => {
                 placeholder="Email"
                 keyboardType="email-address"
                 autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nouveau mot de passe (laisser vide pour ne pas modifier)</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.password}
+                onChangeText={(text) => handleChange('password', text)}
+                placeholder="Nouveau mot de passe"
+                secureTextEntry
               />
             </View>
           </ScrollView>
@@ -390,6 +408,13 @@ export default function UsersManagementScreen() {
 
   const updateUserProfile = async (userId, updates) => {
     try {
+      // If there's a password update, hash it first
+      if (updates.password) {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(updates.password, salt);
+        updates.password = hashedPassword;
+      }
+
       const { error } = await supabase
         .from('users')
         .update(updates)
