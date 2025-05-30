@@ -1,22 +1,48 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, SafeAreaView, Image } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { theme } from '@/constants/theme';
 import Button from '@/components/Button';
 import { CircleCheck as CheckCircle, Calendar, Clock, MapPin } from 'lucide-react-native';
-import { courts } from '@/constants/mockData';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { supabase } from '@/lib/supabase';
 
 export default function BookingConfirmationScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const [court, setCourt] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  // In a real app, this would come from API response or state
-  const court = courts[0];
+  const bookingId = 'TCM-' + Math.floor(100000 + Math.random() * 900000);
   const bookingDate = new Date();
   const startTime = new Date(new Date().setHours(10, 0, 0, 0));
   const endTime = new Date(new Date().setHours(11, 0, 0, 0));
-  const bookingId = 'TCM-' + Math.floor(100000 + Math.random() * 900000);
+
+  useEffect(() => {
+    fetchCourtDetails();
+  }, [params.courtId]);
+
+  const fetchCourtDetails = async () => {
+    if (!params.courtId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('courts')
+        .select('*')
+        .eq('id', params.courtId)
+        .single();
+
+      if (error) throw error;
+      setCourt(data);
+    } catch (err) {
+      console.error('Error fetching court details:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const handleViewBookings = () => {
     router.push('/bookings');
@@ -25,6 +51,29 @@ export default function BookingConfirmationScreen() {
   const handleBackToHome = () => {
     router.push('/');
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Chargement...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !court) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            Une erreur est survenue lors du chargement des détails de la réservation
+          </Text>
+          <Button title="Retour à l'accueil" onPress={handleBackToHome} />
+        </View>
+      </SafeAreaView>
+    );
+  }
   
   return (
     <SafeAreaView style={styles.container}>
@@ -53,7 +102,12 @@ export default function BookingConfirmationScreen() {
           <Text style={styles.bookingId}>Réservation #{bookingId}</Text>
           
           <View style={styles.courtInfo}>
-            <Image source={{ uri: court.imageUrl }} style={styles.courtImage} />
+            <Image 
+              source={{ 
+                uri: court.image_url || 'https://images.pexels.com/photos/209977/pexels-photo-209977.jpeg'
+              }} 
+              style={styles.courtImage} 
+            />
             <View style={styles.courtDetails}>
               <Text style={styles.courtName}>{court.name}</Text>
               <Text style={styles.courtSurface}>{court.surface}</Text>
@@ -126,6 +180,29 @@ const styles = StyleSheet.create({
   content: {
     padding: theme.spacing.md,
     paddingBottom: 120,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.lg,
+    color: theme.colors.gray[600],
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  errorText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.error,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
   },
   successContainer: {
     alignItems: 'center',

@@ -32,10 +32,7 @@ export default function LoginScreen() {
         .eq('email', email.toLowerCase().trim())
         .limit(1);
 
-      if (queryError) {
-        console.error('Database query error:', queryError);
-        throw new Error('Erreur lors de la connexion à la base de données');
-      }
+      if (queryError) throw queryError;
 
       if (!users || users.length === 0) {
         throw new Error('Email non trouvé');
@@ -133,8 +130,6 @@ export default function LoginScreen() {
             size="lg"
             disabled={isLoading}
           />
-
-          
         </View>
       </View>
     </SafeAreaView>
