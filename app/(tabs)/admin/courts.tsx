@@ -23,6 +23,16 @@ const FEATURES = [
   { id: 'newNet', label: 'Filet neuf' }
 ];
 
+const FEATURE_TRANSLATIONS = {
+  'lighting': 'Éclairage',
+  'benches': 'Bancs',
+  'newNet': 'Filet neuf'
+};
+
+const translateFeature = (featureId: string) => {
+  return FEATURE_TRANSLATIONS[featureId as keyof typeof FEATURE_TRANSLATIONS] || featureId;
+};
+
 interface FormData {
   name: string;
   description: string;
@@ -414,7 +424,9 @@ export default function CourtsManagementScreen() {
                 <View style={styles.featuresContainer}>
                   {court.features.map((feature, index) => (
                     <View key={index} style={styles.featureTag}>
-                      <Text style={styles.featureTagText}>{feature}</Text>
+                      <Text style={styles.featureTagText}>
+                        {translateFeature(feature)}
+                      </Text>
                     </View>
                   ))}
                 </View>
