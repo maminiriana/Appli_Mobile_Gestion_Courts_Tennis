@@ -1,19 +1,18 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { theme } from '@/constants/theme';
-import { courts, bookings } from '@/constants/mockData';
 import { Calendar, Users, TrendingUp, Clock } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
 
-// Mock statistics data
-const mockStats = {
-  totalBookings: 156,
-  activeMembers: 84,
-  averageBookingDuration: 1.5,
-  mostPopularCourt: 'Court N°1',
-  peakHours: '18:00 - 20:00',
-  occupancyRate: 75,
-  weeklyGrowth: 12,
-  monthlyRevenue: 3200,
+// Types for our data
+type Court = {
+  id: string;
+  name: string;
+};
+
+type Booking = {
+  id: string;
+  court_id: string;
 };
 
 const timeRanges = ['Semaine', 'Mois', 'Année'] as const;
@@ -21,6 +20,54 @@ type TimeRange = typeof timeRanges[number];
 
 export default function StatsScreen() {
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('Mois');
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Mock statistics data - This would ideally be calculated from real data
+  const mockStats = {
+    totalBookings: 156,
+    activeMembers: 84,
+    averageBookingDuration: 1.5,
+    mostPopularCourt: 'Court N°1',
+    peakHours: '18:00 - 20:00',
+    occupancyRate: 75,
+    weeklyGrowth: 12,
+    monthlyRevenue: 3200,
+  };
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch courts
+        const { data: courtsData, error: courtsError } = await supabase
+          .from('courts')
+          .select('*');
+
+        if (courtsError) throw courtsError;
+
+        // Fetch bookings
+        const { data: bookingsData, error: bookingsError } = await supabase
+          .from('bookings')
+          .select('*');
+
+        if (bookingsError) throw bookingsError;
+
+        setCourts(courtsData);
+        setBookings(bookingsData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
 
   const StatCard = ({ title, value, icon, suffix = '' }: {
     title: string;
@@ -38,6 +85,23 @@ export default function StatsScreen() {
       </Text>
     </View>
   );
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Chargement des statistiques...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -69,7 +133,7 @@ export default function StatsScreen() {
       <View style={styles.statsGrid}>
         <StatCard
           title="Réservations"
-          value={mockStats.totalBookings}
+          value={bookings.length}
           icon={<Calendar size={24} color={theme.colors.primary} />}
         />
         <StatCard
@@ -94,7 +158,7 @@ export default function StatsScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Détails des courts</Text>
         {courts.map((court) => {
-          const courtBookings = bookings.filter(b => b.courtId === court.id);
+          const courtBookings = bookings.filter(b => b.court_id === court.id);
           const occupancyRate = (courtBookings.length / 20) * 100; // Simplified calculation
 
           return (
@@ -176,6 +240,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray[100],
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.gray[100],
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.gray[600],
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.gray[100],
+    padding: theme.spacing.lg,
+  },
+  errorText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.error,
+    textAlign: 'center',
   },
   header: {
     padding: theme.spacing.md,
