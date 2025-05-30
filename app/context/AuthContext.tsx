@@ -29,17 +29,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUserState] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
 
-  // Load stored auth state on mount
+  // Charger l'état d'authentification au montage
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      const storedUser = localStorage.getItem(STORAGE_KEY_USER);
-      const storedToken = localStorage.getItem(STORAGE_KEY_TOKEN);
-      
-      if (storedUser && storedToken) {
-        setUserState(JSON.parse(storedUser));
-        setTokenState(storedToken);
+    const loadAuthState = async () => {
+      if (Platform.OS === 'web') {
+        try {
+          const storedUser = localStorage.getItem(STORAGE_KEY_USER);
+          const storedToken = localStorage.getItem(STORAGE_KEY_TOKEN);
+          
+          if (storedUser && storedToken) {
+            setUserState(JSON.parse(storedUser));
+            setTokenState(storedToken);
+          }
+        } catch (error) {
+          console.error('Erreur lors du chargement de l\'état d\'authentification:', error);
+        }
       }
-    }
+    };
+
+    loadAuthState();
   }, []);
 
   const setUser = (newUser: User | null) => {

@@ -3,7 +3,12 @@ import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
 import { theme } from '@/constants/theme';
 import { MapPin, DoorClosed, CircleCheck as CheckCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { FEATURES } from '@/constants/mockData';
+
+const FEATURE_TRANSLATIONS = {
+  'lighting': 'Éclairage',
+  'benches': 'Bancs',
+  'newNet': 'Filet neuf'
+};
 
 interface CourtItemProps {
   court: {
@@ -24,9 +29,8 @@ export default function CourtItem({ court }: CourtItemProps) {
     router.push(`/court/${court.id}`);
   };
 
-  const getFeatureLabel = (featureId: string) => {
-    const feature = FEATURES.find(f => f.id === featureId);
-    return feature ? feature.label : featureId;
+  const translateFeature = (featureId: string) => {
+    return FEATURE_TRANSLATIONS[featureId as keyof typeof FEATURE_TRANSLATIONS] || featureId;
   };
 
   return (
@@ -57,7 +61,7 @@ export default function CourtItem({ court }: CourtItemProps) {
               <View key={index} style={styles.feature}>
                 <CheckCircle size={14} color={theme.colors.primary} />
                 <Text style={styles.featureText}>
-                  {getFeatureLabel(featureId)}
+                  {translateFeature(featureId)}
                 </Text>
               </View>
             ))}
