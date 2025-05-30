@@ -12,18 +12,18 @@ import {
   Platform
 } from 'react-native';
 import { theme } from '@/constants/theme';
-import { Search, Filter, Plus, X, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, CircleOff } from 'lucide-react-native';
+import { Search, Filter, Plus, X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import Button from '@/components/Button';
 
-const AVAILABLE_FEATURES = [
-  'Éclairage',
-  'Bancs',
-  'Filet neuf'
+const FEATURES = [
+  { id: 'lighting', label: 'Éclairage' },
+  { id: 'benches', label: 'Bancs' },
+  { id: 'newNet', label: 'Filet neuf' }
 ];
 
 const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
-  const [courtData, setCourtData] = useState({
+  const [formData, setFormData] = useState({
     name: '',
     description: '',
     surface: '',
@@ -32,21 +32,28 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
     image_url: ''
   });
 
-  const toggleFeature = (feature) => {
-    setCourtData(prev => {
+  const handleChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const toggleFeature = (featureId) => {
+    setFormData(prev => {
       const features = [...prev.features];
-      const index = features.indexOf(feature);
+      const index = features.indexOf(featureId);
       if (index > -1) {
         features.splice(index, 1);
       } else {
-        features.push(feature);
+        features.push(featureId);
       }
       return { ...prev, features };
     });
   };
 
   const handleSubmit = () => {
-    onSubmit(courtData);
+    onSubmit(formData);
   };
 
   return (
@@ -69,8 +76,8 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
               <Text style={styles.label}>Nom *</Text>
               <TextInput
                 style={styles.input}
-                value={courtData.name}
-                onChangeText={(text) => setCourtData(prev => ({ ...prev, name: text }))}
+                value={formData.name}
+                onChangeText={(text) => handleChange('name', text)}
                 placeholder="Nom du court"
               />
             </View>
@@ -79,8 +86,8 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
               <Text style={styles.label}>Description</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
-                value={courtData.description}
-                onChangeText={(text) => setCourtData(prev => ({ ...prev, description: text }))}
+                value={formData.description}
+                onChangeText={(text) => handleChange('description', text)}
                 placeholder="Description du court"
                 multiline
                 numberOfLines={4}
@@ -91,21 +98,21 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
               <Text style={styles.label}>Surface *</Text>
               <TextInput
                 style={styles.input}
-                value={courtData.surface}
-                onChangeText={(text) => setCourtData(prev => ({ ...prev, surface: text }))}
+                value={formData.surface}
+                onChangeText={(text) => handleChange('surface', text)}
                 placeholder="Type de surface"
               />
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Caractéristiques</Text>
-              {AVAILABLE_FEATURES.map((feature, index) => (
-                <View key={index} style={styles.featureCheckbox}>
+              {FEATURES.map((feature) => (
+                <View key={feature.id} style={styles.featureCheckbox}>
                   <Switch
-                    value={courtData.features.includes(feature)}
-                    onValueChange={() => toggleFeature(feature)}
+                    value={formData.features.includes(feature.id)}
+                    onValueChange={() => toggleFeature(feature.id)}
                   />
-                  <Text style={styles.featureLabel}>{feature}</Text>
+                  <Text style={styles.featureLabel}>{feature.label}</Text>
                 </View>
               ))}
             </View>
@@ -113,8 +120,8 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Court intérieur</Text>
               <Switch
-                value={courtData.indoor}
-                onValueChange={(value) => setCourtData(prev => ({ ...prev, indoor: value }))}
+                value={formData.indoor}
+                onValueChange={(value) => handleChange('indoor', value)}
               />
             </View>
 
@@ -122,8 +129,8 @@ const AddCourtModal = ({ visible, onClose, onSubmit, isLoading }) => {
               <Text style={styles.label}>URL de l'image</Text>
               <TextInput
                 style={styles.input}
-                value={courtData.image_url}
-                onChangeText={(text) => setCourtData(prev => ({ ...prev, image_url: text }))}
+                value={formData.image_url}
+                onChangeText={(text) => handleChange('image_url', text)}
                 placeholder="URL de l'image du court"
               />
             </View>
@@ -278,11 +285,6 @@ export default function CourtsManagementScreen() {
                   styles.statusBadge,
                   { backgroundColor: court.is_active ? `${theme.colors.success}20` : `${theme.colors.error}20` }
                 ]}>
-                  {court.is_active ? (
-                    <CheckCircle2 size={16} color={theme.colors.success} />
-                  ) : (
-                    <CircleOff size={16} color={theme.colors.error} />
-                  )}
                   <Text style={[
                     styles.statusText,
                     { color: court.is_active ? theme.colors.success : theme.colors.error }
@@ -412,8 +414,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 4,
     borderRadius: theme.borderRadius.pill,
@@ -421,7 +421,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontFamily: theme.fonts.medium,
     fontSize: theme.fontSizes.sm,
-    marginLeft: 4,
   },
   courtDescription: {
     fontFamily: theme.fonts.regular,
