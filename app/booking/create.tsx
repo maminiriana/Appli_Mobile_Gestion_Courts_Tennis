@@ -15,7 +15,6 @@ export default function CreateBookingScreen() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // Ces valeurs devraient venir des paramètres de navigation
   const courtId = params.courtId as string;
   const startTime = params.startTime ? new Date(params.startTime as string) : new Date();
   const endTime = params.endTime ? new Date(params.endTime as string) : new Date(Date.now() + 3600000);
@@ -50,14 +49,17 @@ export default function CreateBookingScreen() {
           court_id: courtId,
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
-          status: 'pending',
+          status: 'confirmed',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
 
       if (bookingError) throw bookingError;
 
-      router.push('/booking/confirmation');
+      router.push({
+        pathname: '/booking/confirmation',
+        params: { courtId }
+      });
     } catch (error) {
       console.error('Erreur lors de la réservation:', error);
       Alert.alert(
@@ -132,13 +134,6 @@ export default function CreateBookingScreen() {
               textAlignVertical="top"
             />
           </View>
-        </View>
-        
-        <View style={styles.paymentSection}>
-          <Text style={styles.sectionTitle}>Paiement</Text>
-          <Text style={styles.paymentInfo}>
-            Le paiement sera effectué sur place. Vous pouvez annuler votre réservation jusqu'à 24 heures avant l'heure prévue.
-          </Text>
         </View>
       </ScrollView>
       
@@ -225,17 +220,6 @@ const styles = StyleSheet.create({
   textArea: {
     height: 100,
     paddingTop: theme.spacing.sm,
-  },
-  paymentSection: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-  },
-  paymentInfo: {
-    fontFamily: theme.fonts.regular,
-    fontSize: theme.fontSizes.md,
-    color: theme.colors.gray[700],
-    lineHeight: 22,
   },
   footer: {
     position: 'absolute',
