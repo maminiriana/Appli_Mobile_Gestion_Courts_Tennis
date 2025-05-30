@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type User = {
   id: string;
@@ -29,11 +30,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUserState] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
 
-  // Charger l'état d'authentification au montage
   useEffect(() => {
     const loadAuthState = async () => {
-      if (Platform.OS === 'web') {
-        try {
+      try {
+        if (Platform.OS === 'web') {
           const storedUser = localStorage.getItem(STORAGE_KEY_USER);
           const storedToken = localStorage.getItem(STORAGE_KEY_TOKEN);
           
@@ -41,34 +41,62 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUserState(JSON.parse(storedUser));
             setTokenState(storedToken);
           }
-        } catch (error) {
-          console.error('Erreur lors du chargement de l\'état d\'authentification:', error);
+        } else {
+          const storedUser = await AsyncStorage.getItem(STORAGE_KEY_USER);
+          const storedToken = await AsyncStorage.getItem(STORAGE_KEY_TOKEN);
+          
+          if (storedUser && storedToken) {
+            setUserState(JSON.parse(storedUser));
+            setTokenState(storedToken);
+          }
         }
+      } catch (error) {
+        console.error('Error loading auth state:', error);
       }
     };
 
     loadAuthState();
   }, []);
 
-  const setUser = (newUser: User | null) => {
+  const setUser = async (newUser: User | null) => {
     setUserState(newUser);
-    if (Platform.OS === 'web') {
-      if (newUser) {
-        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUser));
+    try {
+      if (Platform.OS === 'web') {
+        if (newUser) {
+          localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUser));
+        } else {
+          localStorage.removeItem(STORAGE_KEY_USER);
+        }
       } else {
-        localStorage.removeItem(STORAGE_KEY_USER);
+        if (newUser) {
+          await AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUser));
+        } else {
+          await AsyncStorage.removeItem(STORAGE_KEY_USER);
+        }
       }
+    } catch (error) {
+      console.error('Error saving user:', error);
     }
   };
 
-  const setToken = (newToken: string | null) => {
+  const setToken = async (newToken: string | null) => {
     setTokenState(newToken);
-    if (Platform.OS === 'web') {
-      if (newToken) {
-        localStorage.setItem(STORAGE_KEY_TOKEN, newToken);
+    try {
+      if (Platform.OS === 'web') {
+        if (newToken) {
+          localStorage.setItem(STORAGE_KEY_TOKEN, newToken);
+        } else {
+          localStorage.removeItem(STORAGE_KEY_TOKEN);
+        }
       } else {
-        localStorage.removeItem(STORAGE_KEY_TOKEN);
+        if (newToken) {
+          await AsyncStorage.setItem(STORAGE_KEY_TOKEN, newToken);
+        } else {
+          await AsyncStorage.removeItem(STORAGE_KEY_TOKEN);
+        }
       }
+    } catch (error) {
+      console.error('Error saving token:', error);
     }
   };
 
